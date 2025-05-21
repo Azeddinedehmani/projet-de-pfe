@@ -1,26 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import Table from '../common/Table';
 import Modal from '../common/Modal';
+import LocalImage from '../common/LocalImage';
+import ImageViewer from '../common/ImageViewer';
+import LocalImageUploader from '../common/LocalImageUploader';
+import LocalImageService from '../../utils/LocalImageService';
 import '../../styles/dashboard.css';
 import API from '../../api'; 
 
 const AdminClassrooms = () => {
   const [classrooms, setClassrooms] = useState([]);
-  const [studyRooms, setStudyRooms] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [roomType, setRoomType] = useState('classroom'); // 'classroom' or 'studyRoom'
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Images par défaut disponibles
-  const defaultImages = [
-    { value: '/images/classroom-default.jpg', label: 'Salle de classe standard' },
-    { value: '/images/lecture-hall.jpg', label: 'Amphithéâtre' },
-    { value: '/images/computer-lab.jpg', label: 'Laboratoire informatique' },
-    { value: '/images/conference-room.jpg', label: 'Salle de conférence' }
-  ];
   
   // État du formulaire
   const [formData, setFormData] = useState({
@@ -30,7 +25,7 @@ const AdminClassrooms = () => {
     capacity: '',
     features: '',
     availableTimes: '',
-    image: ''
+    image: '/images/classrooms/classroom-default.jpg' // Default image path
   });
   
   // Charger les salles depuis l'API au montage du composant
@@ -43,7 +38,6 @@ const AdminClassrooms = () => {
         console.log("Classrooms response:", classroomsResponse);
         setClassrooms(classroomsResponse.data);
     
-        
         setError(null);
       } catch (err) {
         console.error("Error fetching rooms:", err);
@@ -52,9 +46,7 @@ const AdminClassrooms = () => {
         // Fallback to localStorage if API fails
         const storedClassrooms = JSON.parse(localStorage.getItem('availableClassrooms') || '[]');
         
-        
         setClassrooms(storedClassrooms);
-       
       } finally {
         setLoading(false);
       }
@@ -80,8 +72,8 @@ const AdminClassrooms = () => {
     });
   };
   
-  // Gérer la sélection d'image
-  const handleImageChange = (e) => {
+  // Handle image selection from the uploader
+  const handleImageSelect = (e) => {
     setFormData({
       ...formData,
       image: e.target.value
@@ -99,7 +91,7 @@ const AdminClassrooms = () => {
       capacity: '',
       features: '',
       availableTimes: '8AM - 9PM',
-      image: type === 'classroom' ? '/images/classroom-default.jpg' : '/images/study-room.jpg'
+      image: '/images/classrooms/classroom-default.jpg' // Default image
     });
     setShowModal(true);
   };
@@ -117,7 +109,7 @@ const AdminClassrooms = () => {
         type: room.type || '',
         capacity: room.capacity || '',
         features: Array.isArray(room.features) ? room.features.join(', ') : (room.features || ''),
-        image: room.image || '/images/classroom-default.jpg'
+        image: room.image || '/images/classrooms/classroom-default.jpg'
       });
     } 
     
@@ -151,7 +143,7 @@ const AdminClassrooms = () => {
       type: formData.type,
       capacity: parseInt(formData.capacity),
       features: featuresList,
-      image: formData.image // Inclure l'image dans les données
+      image: formData.image // Use the image URL (either regular or localStorage)
     };
     
     console.log("Données envoyées:", classroomData); // Pour debug
@@ -232,16 +224,22 @@ const AdminClassrooms = () => {
     }
   };
   
-
-  
   // Gérer la suppression d'une salle
   const handleDeleteRoom = async (id, type) => {
     if (window.confirm('Are you sure you want to delete this room?')) {
       try {
+        // Find the room first to get its image
+        const roomToDelete = classrooms.find(room => room.id === id);
+        
         if (type === 'classroom') {
           // Utiliser l'API directement
           await API.delete(`/api/rooms/classrooms/${id}`);
           console.log("Classroom deleted on backend:", id);
+          
+          // If the room had a localStorage image, delete it too
+          if (roomToDelete && roomToDelete.image && roomToDelete.image.startsWith('local-storage://')) {
+            LocalImageService.deleteImage(roomToDelete.image);
+          }
           
           // Update local state
           const updatedClassrooms = classrooms.filter(classroom => classroom.id !== id);
@@ -254,10 +252,6 @@ const AdminClassrooms = () => {
         alert('Room deleted successfully.');
       } catch (err) {
         console.error("API error details:", err.response || err);
-        
-        
-        
-     
       }
     }
   };
@@ -276,11 +270,15 @@ const AdminClassrooms = () => {
     {
       header: 'Image',
       key: 'image',
-      render: (image) => image ? (
+      render: (image) => (
         <div className="table-image-preview">
-          <img src={image} alt="Classroom" width="50" height="40" style={{objectFit: 'cover'}} />
+          <ImageViewer 
+            src={image} 
+            alt="Classroom" 
+            previewStyle={{width: '50px', height: '40px'}}
+          />
         </div>
-      ) : 'No Image'
+      )
     },
     {
       header: 'Actions',
@@ -303,8 +301,6 @@ const AdminClassrooms = () => {
       )
     }
   ];
-  
-  
   
   return (
     <div className="main-content">
@@ -333,13 +329,11 @@ const AdminClassrooms = () => {
         )}
       </div>
       
-      
-      
       {/* Modal pour ajouter/modifier une salle */}
       <Modal
         show={showModal}
         onClose={() => setShowModal(false)}
-        title={`${modalMode === 'add' ? 'Add' : 'Edit'} ${roomType === 'classroom' }`}
+        title={`${modalMode === 'add' ? 'Add' : 'Edit'} ${roomType === 'classroom' ? 'Classroom' : 'Study Room'}`}
       >
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -408,61 +402,26 @@ const AdminClassrooms = () => {
             />
           </div>
           
-         
+          {/* Image upload - Using our custom component */}
+          <LocalImageUploader onImageSelect={handleImageSelect} />
           
+          {/* Current image preview */}
           <div className="form-group">
-            <label htmlFor="image">Room Image</label>
-            <select
-              id="image"
-              name="image"
-              value={formData.image}
-              onChange={handleImageChange}
-            >
-              {roomType === 'classroom' ? (
-                <>
-                  {defaultImages.map(img => (
-                    <option key={img.value} value={img.value}>{img.label}</option>
-                  ))}
-                  <option value="/images/custom-classroom.jpg">Custom Classroom Image</option>
-                </>
-              ) : (
-                <>
-                  <option value="/images/study-room.jpg">Standard Study Room</option>
-                  <option value="/images/group-study.jpg">Group Study Room</option>
-                  <option value="/images/library-study.jpg">Library Study Space</option>
-                  <option value="/images/computer-lab.jpg">Computer Lab</option>
-                </>
-              )}
-            </select>
-          </div>
-          
-          {/* Image preview */}
-          <div className="form-group">
-            <label>Image Preview</label>
+            <label>Current Selected Image</label>
             <div className="image-preview">
-              {formData.image ? (
-                <img 
-                  src={formData.image} 
-                  alt={roomType === 'classroom' ? 'Classroom' : 'Study Room'} 
-                  style={{ maxWidth: '100%', height: 'auto', maxHeight: '150px', objectFit: 'cover' }}
-                />
-              ) : (
-                <div className="no-image">No image selected</div>
-              )}
+              <ImageViewer 
+                src={formData.image} 
+                alt={roomType === 'classroom' ? 'Classroom' : 'Study Room'} 
+                previewStyle={{ maxWidth: '100%', height: '200px' }}
+                maxWidth="90vw"
+                maxHeight="80vh"
+              />
             </div>
-          </div>
-          
-          {/* Custom URL input option */}
-          <div className="form-group">
-            <label htmlFor="custom-image">Or enter custom image URL</label>
-            <input 
-              type="text" 
-              id="custom-image" 
-              placeholder="https://example.com/image.jpg"
-              value={formData.image.startsWith('http') ? formData.image : ''}
-              onChange={(e) => setFormData({...formData, image: e.target.value})}
-            />
-            <small className="form-hint">Enter a custom URL if you want to use an external image</small>
+            <small className="form-text text-muted">
+              {formData.image && formData.image.startsWith('local-storage://') 
+                ? 'Custom uploaded image from your device' 
+                : 'Default system image'} (Click to enlarge)
+            </small>
           </div>
           
           <button type="submit" className="btn-primary">

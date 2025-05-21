@@ -13,7 +13,7 @@ public class ReportDataDTO {
     private List<ActiveUserDTO> activeUsers;
     private List<MonthlyActivityDTO> monthlyActivity;
 
-    // Only keep one constructor
+    // Constructor
     public ReportDataDTO(Map<String, Object> statistics, List<PopularRoomDTO> popularRooms, 
                          List<ActiveUserDTO> activeUsers, List<MonthlyActivityDTO> monthlyActivity) {
         this.statistics = statistics;
@@ -22,10 +22,44 @@ public class ReportDataDTO {
         this.monthlyActivity = monthlyActivity;
     }
 
+    // Explicit getters and setters
+    public Map<String, Object> getStatistics() {
+        return statistics;
+    }
+
+    public void setStatistics(Map<String, Object> statistics) {
+        this.statistics = statistics;
+    }
+
+    public List<PopularRoomDTO> getPopularRooms() {
+        return popularRooms;
+    }
+
+    public void setPopularRooms(List<PopularRoomDTO> popularRooms) {
+        this.popularRooms = popularRooms;
+    }
+
+    public List<ActiveUserDTO> getActiveUsers() {
+        return activeUsers;
+    }
+
+    public void setActiveUsers(List<ActiveUserDTO> activeUsers) {
+        this.activeUsers = activeUsers;
+    }
+
+    public List<MonthlyActivityDTO> getMonthlyActivity() {
+        return monthlyActivity;
+    }
+
+    public void setMonthlyActivity(List<MonthlyActivityDTO> monthlyActivity) {
+        this.monthlyActivity = monthlyActivity;
+    }
+
     public static ReportDataDTOBuilder builder() {
         return new ReportDataDTOBuilder();
     }
 
+    // Builder class
     public static class ReportDataDTOBuilder {
         private Map<String, Object> statistics;
         private List<PopularRoomDTO> popularRooms;
@@ -64,10 +98,35 @@ public class ReportDataDTO {
         private long count;
         private double percentage;
 
-        // Only keep one constructor
+        // Constructor
         public PopularRoomDTO(String room, long count, double percentage) {
             this.room = room;
             this.count = count;
+            this.percentage = percentage;
+        }
+
+        // Explicit getters and setters
+        public String getRoom() {
+            return room;
+        }
+
+        public void setRoom(String room) {
+            this.room = room;
+        }
+
+        public long getCount() {
+            return count;
+        }
+
+        public void setCount(long count) {
+            this.count = count;
+        }
+
+        public double getPercentage() {
+            return percentage;
+        }
+
+        public void setPercentage(double percentage) {
             this.percentage = percentage;
         }
 
@@ -109,11 +168,44 @@ public class ReportDataDTO {
         private String role;
         private long count;
 
-        // Only keep one constructor
+        // Constructor
         public ActiveUserDTO(String userId, String userName, String role, long count) {
             this.userId = userId;
             this.userName = userName;
             this.role = role;
+            this.count = count;
+        }
+
+        // Explicit getters and setters
+        public String getUserId() {
+            return userId;
+        }
+
+        public void setUserId(String userId) {
+            this.userId = userId;
+        }
+
+        public String getUserName() {
+            return userName;
+        }
+
+        public void setUserName(String userName) {
+            this.userName = userName;
+        }
+
+        public String getRole() {
+            return role;
+        }
+
+        public void setRole(String role) {
+            this.role = role;
+        }
+
+        public long getCount() {
+            return count;
+        }
+
+        public void setCount(long count) {
             this.count = count;
         }
 
@@ -159,13 +251,56 @@ public class ReportDataDTO {
         private String month;
         private int professorCount;
         private int studentCount;
+        private int adminCount;
         private int total;
 
-        // Only keep one constructor
-        public MonthlyActivityDTO(String month, int professorCount, int studentCount, int total) {
+        // Updated constructor with adminCount
+        public MonthlyActivityDTO(String month, int professorCount, int studentCount, int adminCount, int total) {
             this.month = month;
             this.professorCount = professorCount;
             this.studentCount = studentCount;
+            this.adminCount = adminCount;
+            this.total = total;
+        }
+
+        // Explicit getters and setters
+        public String getMonth() {
+            return month;
+        }
+
+        public void setMonth(String month) {
+            this.month = month;
+        }
+
+        public int getProfessorCount() {
+            return professorCount;
+        }
+
+        public void setProfessorCount(int professorCount) {
+            this.professorCount = professorCount;
+        }
+
+        public int getStudentCount() {
+            return studentCount;
+        }
+
+        public void setStudentCount(int studentCount) {
+            this.studentCount = studentCount;
+        }
+
+        public int getAdminCount() {
+            return adminCount;
+        }
+
+        public void setAdminCount(int adminCount) {
+            this.adminCount = adminCount;
+        }
+
+        public int getTotal() {
+            return total;
+        }
+
+        public void setTotal(int total) {
             this.total = total;
         }
 
@@ -177,6 +312,7 @@ public class ReportDataDTO {
             private String month;
             private int professorCount;
             private int studentCount;
+            private int adminCount;
             private int total;
 
             public MonthlyActivityDTOBuilder month(String month) {
@@ -194,13 +330,18 @@ public class ReportDataDTO {
                 return this;
             }
 
+            public MonthlyActivityDTOBuilder adminCount(int adminCount) {
+                this.adminCount = adminCount;
+                return this;
+            }
+
             public MonthlyActivityDTOBuilder total(int total) {
                 this.total = total;
                 return this;
             }
 
             public MonthlyActivityDTO build() {
-                return new MonthlyActivityDTO(month, professorCount, studentCount, total);
+                return new MonthlyActivityDTO(month, professorCount, studentCount, adminCount, total);
             }
         }
     }

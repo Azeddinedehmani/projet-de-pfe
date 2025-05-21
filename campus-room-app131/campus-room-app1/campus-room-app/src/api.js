@@ -51,13 +51,46 @@ instance.interceptors.response.use(
 );
 
 // File upload API calls
+// File upload API calls
 export const fileAPI = {
-  // Upload an image file
+  // Upload profile with image
+  uploadProfileWithImage: (formData) => {
+    return instance.post('/profile/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      onUploadProgress: progressEvent => {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        console.log('Upload progress:', percentCompleted);
+      }
+    });
+  },
+  
+  // Upload an image file with progress tracking
   uploadImage: (file) => {
     const formData = new FormData();
     formData.append('file', file);
     
-    return instance.post('/uploads/images', formData);
+    return instance.post('/api/uploads/images', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      onUploadProgress: progressEvent => {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        console.log('Upload progress:', percentCompleted);
+        // You can also use a callback here if needed
+      }
+    });
+  },
+  
+  // Get file metadata
+  getFileMetadata: (fileId) => {
+    return instance.get(`/api/uploads/metadata/${fileId}`);
+  },
+  
+  // Delete a file
+  deleteFile: (fileId) => {
+    return instance.delete(`/api/uploads/files/${fileId}`);
   }
 };
 

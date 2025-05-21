@@ -17,6 +17,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, String
     // Méthodes de base
     List<Reservation> findByStatus(String status);
     int countByStatus(String status);
+     List<Reservation> findByClassroom(Classroom classroom);
     
     // Méthodes liées à l'utilisateur
     List<Reservation> findByUser(User user);

@@ -4,6 +4,8 @@ import API from '../../api';
 import ReservationEmailService from '../../services/ReservationEmailService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
+import LocalImage from '../common/LocalImage';
+import LocalImageService from '../../utils/LocalImageService';
 
 const StudentClassroomReservation = ({ fullPage = false }) => {
   const { currentUser } = useAuth();
@@ -178,19 +180,19 @@ const StudentClassroomReservation = ({ fullPage = false }) => {
   }, [allClassrooms, isEditMode, formData.classroomId]);
 
   // Create fallback methods if API is not properly defined
-useEffect(() => {
-  if (!API.studentAPI) {
-    console.error('studentAPI is undefined, creating fallback methods');
-    // Create fallback methods
-    API.studentAPI = {
-      searchAvailableClassrooms: (criteria) => API.post('/api/student/classroom-reservations/search', criteria),
-      requestClassroomReservation: (data) => API.post('/api/student/classroom-reservations/request', data),
-      editClassroomReservation: (id, data) => API.put(`/api/student/classroom-reservations/${id}`, data),
-      cancelReservation: (id) => API.put(`/api/student/reservations/${id}/cancel`),
-      getMyReservations: () => API.get('/api/student/my-reservations')
-    };
-  }
-}, []);
+  useEffect(() => {
+    if (!API.studentAPI) {
+      console.error('studentAPI is undefined, creating fallback methods');
+      // Create fallback methods
+      API.studentAPI = {
+        searchAvailableClassrooms: (criteria) => API.post('/api/student/classroom-reservations/search', criteria),
+        requestClassroomReservation: (data) => API.post('/api/student/classroom-reservations/request', data),
+        editClassroomReservation: (id, data) => API.put(`/api/student/classroom-reservations/${id}`, data),
+        cancelReservation: (id) => API.put(`/api/student/reservations/${id}/cancel`),
+        getMyReservations: () => API.get('/api/student/my-reservations')
+      };
+    }
+  }, []);
 
   // Function to fetch all classrooms using the API service
   const fetchAllClassrooms = async () => {
@@ -592,15 +594,13 @@ useEffect(() => {
                 className={`classroom-card ${selectedClassroom && selectedClassroom.id === classroom.id ? 'selected' : ''}`}
                 onClick={() => handleSelectClassroom(classroom)}
               >
-                {/* Classroom image */}
+                {/* Classroom image - Using LocalImage component */}
                 <div className="classroom-image">
-                  <img 
+                  <LocalImage 
                     src={classroom.image || '/images/classroom-default.jpg'} 
                     alt={classroom.roomNumber}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = '/images/classroom-default.jpg';
-                    }}
+                    fallbackSrc="/images/classroom-default.jpg"
+                    style={{width: '100%', height: '100%', objectFit: 'cover'}}
                   />
                 </div>
                 <h4>{classroom.roomNumber}</h4>
@@ -650,15 +650,13 @@ useEffect(() => {
                 className={`classroom-card ${selectedClassroom && selectedClassroom.id === classroom.id ? 'selected' : ''}`}
                 onClick={() => handleSelectClassroom(classroom)}
               >
-                {/* Classroom image */}
+                {/* Classroom image - Using LocalImage component */}
                 <div className="classroom-image">
-                  <img 
+                  <LocalImage 
                     src={classroom.image || '/images/classroom-default.jpg'} 
                     alt={classroom.roomNumber}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = '/images/classroom-default.jpg';
-                    }}
+                    fallbackSrc="/images/classroom-default.jpg"
+                    style={{width: '100%', height: '100%', objectFit: 'cover'}}
                   />
                 </div>
                 <h4>{classroom.roomNumber}</h4>
@@ -689,15 +687,13 @@ useEffect(() => {
       <div className="reservation-details-container">
         <h3>{isEditMode ? 'Edit Reservation' : 'Finalize Reservation'}</h3>
         <div className="selected-classroom-info">
-          {/* Selected classroom image */}
+          {/* Selected classroom image - Using LocalImage component */}
           <div className="selected-classroom-image">
-            <img 
+            <LocalImage 
               src={selectedClassroom.image || '/images/classroom-default.jpg'} 
               alt={selectedClassroom.roomNumber}
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = '/images/classroom-default.jpg';
-              }}
+              fallbackSrc="/images/classroom-default.jpg"
+              style={{width: '100%', height: '100%', objectFit: 'cover'}}
             />
           </div>
           <h4>Selected Classroom: {selectedClassroom.roomNumber}</h4>

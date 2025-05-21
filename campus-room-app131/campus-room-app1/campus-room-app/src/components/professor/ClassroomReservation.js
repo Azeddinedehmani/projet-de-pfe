@@ -4,6 +4,8 @@ import API from '../../api';
 import ReservationEmailService from '../../services/ReservationEmailService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
+import LocalImage from '../common/LocalImage';
+import LocalImageService from '../../utils/LocalImageService';
 
 const ClassroomReservation = ({ fullPage = false }) => {
   const { currentUser } = useAuth();
@@ -242,29 +244,28 @@ const ClassroomReservation = ({ fullPage = false }) => {
     }));
   };
 
- // Then update the handleSearch function around line 150
-const handleSearch = async (e) => {
-  e.preventDefault();
-  setIsLoading(true);
-  setMessage({ text: '', type: '' });
-  setSearchResults([]);
-  setSelectedClassroom(null);
-  setSearchPerformed(true);
-  setViewMode('search');
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage({ text: '', type: '' });
+    setSearchResults([]);
+    setSelectedClassroom(null);
+    setSearchPerformed(true);
+    setViewMode('search');
 
-  try {
-    // Validate inputs
-    if (!formData.date || !formData.startTime || !formData.endTime || !formData.capacity) {
-      setMessage({ text: 'Please fill in all required fields', type: 'error' });
-      setIsLoading(false);
-      return;
-    }
+    try {
+      // Validate inputs
+      if (!formData.date || !formData.startTime || !formData.endTime || !formData.capacity) {
+        setMessage({ text: 'Please fill in all required fields', type: 'error' });
+        setIsLoading(false);
+        return;
+      }
 
-    // Add the validation check here
-    if (!validateTimeRange()) {
-      setIsLoading(false);
-      return;
-    }
+      // Add the validation check here
+      if (!validateTimeRange()) {
+        setIsLoading(false);
+        return;
+      }
 
       // Convert capacity to number
       const capacityNum = parseInt(formData.capacity, 10);
@@ -345,27 +346,24 @@ const handleSearch = async (e) => {
   };
 
   // Fixed submitReservation function that handles both create and edit operations
- // Finally update the handleSubmitReservation function around line 235
-const handleSubmitReservation = async () => {
-  if (!selectedClassroom && !formData.classroomId) {
-    setMessage({ text: 'Please select a classroom', type: 'error' });
-    return;
-  }
+  const handleSubmitReservation = async () => {
+    if (!selectedClassroom && !formData.classroomId) {
+      setMessage({ text: 'Please select a classroom', type: 'error' });
+      return;
+    }
 
-  if (!formData.purpose) {
-    setMessage({ text: 'Please provide a purpose for the reservation', type: 'error' });
-    return;
-  }
+    if (!formData.purpose) {
+      setMessage({ text: 'Please provide a purpose for the reservation', type: 'error' });
+      return;
+    }
 
-  // Add the validation check here
-  if (!validateTimeRange()) {
-    return;
-  }
+    // Add the validation check here
+    if (!validateTimeRange()) {
+      return;
+    }
 
-  setIsLoading(true);
-  setMessage({ text: '', type: '' });
-
-
+    setIsLoading(true);
+    setMessage({ text: '', type: '' });
 
     try {
       // Verify token is present
@@ -604,15 +602,13 @@ const handleSubmitReservation = async () => {
                 className={`classroom-card ${selectedClassroom && selectedClassroom.id === classroom.id ? 'selected' : ''}`}
                 onClick={() => handleSelectClassroom(classroom)}
               >
-                {/* Classroom image */}
+                {/* Classroom image - Using LocalImage component */}
                 <div className="classroom-image">
-                  <img 
+                  <LocalImage 
                     src={classroom.image || '/images/classroom-default.jpg'} 
                     alt={classroom.roomNumber}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = '/images/classroom-default.jpg';
-                    }}
+                    fallbackSrc="/images/classroom-default.jpg"
+                    style={{width: '100%', height: '100%', objectFit: 'cover'}}
                   />
                 </div>
                 <h4>{classroom.roomNumber}</h4>
@@ -662,15 +658,13 @@ const handleSubmitReservation = async () => {
                 className={`classroom-card ${selectedClassroom && selectedClassroom.id === classroom.id ? 'selected' : ''}`}
                 onClick={() => handleSelectClassroom(classroom)}
               >
-                {/* Classroom image */}
+                {/* Classroom image - Using LocalImage component */}
                 <div className="classroom-image">
-                  <img 
+                  <LocalImage 
                     src={classroom.image || '/images/classroom-default.jpg'} 
                     alt={classroom.roomNumber}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = '/images/classroom-default.jpg';
-                    }}
+                    fallbackSrc="/images/classroom-default.jpg"
+                    style={{width: '100%', height: '100%', objectFit: 'cover'}}
                   />
                 </div>
                 <h4>{classroom.roomNumber}</h4>
@@ -701,15 +695,13 @@ const handleSubmitReservation = async () => {
       <div className="reservation-details-container">
         <h3>{isEditMode ? 'Edit Reservation' : 'Finalize Reservation'}</h3>
         <div className="selected-classroom-info">
-          {/* Selected classroom image */}
+          {/* Selected classroom image - Using LocalImage component */}
           <div className="selected-classroom-image">
-            <img 
+            <LocalImage 
               src={selectedClassroom.image || '/images/classroom-default.jpg'} 
               alt={selectedClassroom.roomNumber}
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = '/images/classroom-default.jpg';
-              }}
+              fallbackSrc="/images/classroom-default.jpg"
+              style={{width: '100%', height: '100%', objectFit: 'cover'}}
             />
           </div>
           <h4>Selected Classroom: {selectedClassroom.roomNumber}</h4>

@@ -2,6 +2,7 @@ package com.campusroom.controller;
 
 import com.campusroom.dto.*;
 import com.campusroom.service.AdminService;
+import com.campusroom.service.ReportService;
 import com.campusroom.service.ReservationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -21,11 +22,15 @@ public class AdminController {
     private AdminService adminService;
     
     @Autowired
+    private ReportService reportService;
+    
+    @Autowired
     private ReservationService reservationService;
     
     @GetMapping("/dashboard/stats")
-    public ResponseEntity<DashboardStatsDTO> getDashboardStats() {
-        return ResponseEntity.ok(adminService.getDashboardStats());
+    public ResponseEntity<DashboardStatsDTO> getDashboardStats(
+            @RequestParam(defaultValue = "false") boolean forceRefresh) {
+        return ResponseEntity.ok(reportService.getDashboardStats(forceRefresh));
     }
     
     @GetMapping("/dashboard/notifications")
@@ -44,11 +49,13 @@ public class AdminController {
     }
     
     @GetMapping("/reports")
-    public ResponseEntity<ReportDataDTO> getReportsData() {
-        return ResponseEntity.ok(adminService.getReportsData());
+    public ResponseEntity<ReportDataDTO> getReportsData(
+            @RequestParam(defaultValue = "false") boolean forceRefresh) {
+        return ResponseEntity.ok(reportService.getCompleteReportData(forceRefresh));
     }
     
     @PutMapping("/approve-reservation/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> approveReservation(@PathVariable String id) {
         System.out.println("PUT /api/admin/approve-reservation/" + id);
         try {
@@ -64,6 +71,7 @@ public class AdminController {
     }
 
     @PutMapping("/reject-reservation/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> rejectReservation(
             @PathVariable String id,
             @RequestBody(required = false) Map<String, String> requestBody) {
