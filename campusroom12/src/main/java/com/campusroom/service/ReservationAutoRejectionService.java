@@ -38,9 +38,6 @@ public class ReservationAutoRejectionService {
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private ReservationEmailService reservationEmailService;
-
     /**
      * MAIN SCHEDULED TASK - This is the heart of the auto-rejection system
      * 
@@ -134,9 +131,6 @@ public class ReservationAutoRejectionService {
 
         // Step 4: Create user notification
         createAutoRejectionNotification(reservation);
-
-        // Step 5: Send email notification
-        sendAutoRejectionEmail(reservation);
     }
 
     /**
@@ -171,30 +165,6 @@ public class ReservationAutoRejectionService {
         } catch (Exception e) {
             logger.error("❌ Error creating auto-rejection notification for reservation {}: {}", 
                 reservation.getId(), e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Send email notification about the auto-rejection
-     * Uses the existing email service to maintain consistency
-     */
-    private void sendAutoRejectionEmail(Reservation reservation) {
-        try {
-            String reason = String.format(
-                "Your reservation date (%s) arrived without administrative approval. " +
-                "Reservations must be approved before the scheduled date to be valid. " +
-                "Please submit future reservation requests earlier to allow time for review and approval.",
-                new SimpleDateFormat("dd/MM/yyyy").format(reservation.getDate())
-            );
-            
-            // Use existing email service with "REJECTED" status and detailed reason
-            reservationEmailService.sendReservationStatusEmail(reservation, "REJECTED", reason);
-            logger.debug("📧 Sent auto-rejection email to user {}", reservation.getUser().getEmail());
-
-        } catch (Exception e) {
-            logger.error("❌ Error sending auto-rejection email for reservation {}: {}", 
-                reservation.getId(), e.getMessage(), e);
-            // Don't throw exception - email failure shouldn't stop the rejection process
         }
     }
 

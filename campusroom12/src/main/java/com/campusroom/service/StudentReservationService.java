@@ -44,9 +44,6 @@ public class StudentReservationService {
     private NotificationRepository notificationRepository;
 
     @Autowired
-    private ReservationEmailService reservationEmailService;
-
-    @Autowired
     private ClassroomAvailabilityService availabilityService;
     
     @Autowired
@@ -184,13 +181,6 @@ if (conflictInfo.hasConflicts()) {
             if ("PENDING".equals(savedReservation.getStatus())) {
                 // Créer une notification pour les administrateurs
                 createAdminClassroomNotification(savedReservation);
-                
-                // Envoyer un email aux administrateurs si les notifications sont activées
-                if (currentSettings.isEmailNotifications() && 
-                    currentSettings.isReservationCreated()) {
-                    List<User> admins = userRepository.findByRole(User.Role.ADMIN);
-                    reservationEmailService.notifyAdminsAboutNewReservation(savedReservation, admins);
-                }
             }
 
             return convertToReservationDTO(savedReservation);
@@ -463,23 +453,6 @@ if (conflictInfo.hasConflicts()) {
         createClassroomCancellationNotification(updatedReservation);
 
         return convertToReservationDTO(updatedReservation);
-    }
-
-    /**
-     * Vérifie s'il y a des réservations en conflit pour une salle de classe donnée
-     */
-    private boolean hasConflictingClassroomReservation(Classroom classroom, Date date, String startTime, String endTime) {
-        // Validation de base d'abord
-        int requestStartMinutes = convertTimeToMinutes(startTime);
-        int requestEndMinutes = convertTimeToMinutes(endTime);
-        
-        // Vérifier si la plage horaire est invalide
-        if (requestEndMinutes <= requestStartMinutes) {
-            throw new RuntimeException("Plage horaire invalide: l'heure de fin doit être après l'heure de début");
-        }
-        
-        // Utiliser le service centralisé de disponibilité
-        return !availabilityService.isClassroomAvailable(classroom.getId(), date, startTime, endTime);
     }
 
     /**

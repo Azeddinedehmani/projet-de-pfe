@@ -3,7 +3,6 @@ import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext';
 import useProfileLoader from '../../hooks/useProfileLoader'; // Add this import
 import ClassroomReservation from './ClassroomReservation';
-import ClassSchedule from './ClassSchedule';
 import ProfessorTimetable from './ProfessorTimetable';
 import MyReservations from './MyReservations';
 import NotificationService from '../../services/NotificationService';
@@ -659,7 +658,6 @@ const ProfessorDashboard = () => {
     { to: '/professor', icon: 'fas fa-tachometer-alt', text: 'Dashboard', exact: true },
     { to: '/professor/reserve', icon: 'fas fa-calendar-plus', text: 'Reserve Classroom' },
     { to: '/professor/reservations', icon: 'fas fa-calendar-check', text: 'My Reservations' },
-    { to: '/professor/schedule', icon: 'fas fa-calendar-alt', text: 'Class Schedule' },
     { to: '/professor/timetable', icon: 'fas fa-calendar-week', text: 'Timetable' },
     { to: '/professor/profile', icon: 'fas fa-user', text: 'Profile' }
   ];
@@ -710,7 +708,6 @@ const ProfessorDashboard = () => {
           <Route path="/" element={<DashboardHome />} />
           <Route path="/reserve" element={<ClassroomReservation onSubmit={handleReservationSearch} fullPage={true} />} />
           <Route path="/reservations" element={<MyReservations notificationCount={notificationCount} />} />
-          <Route path="/schedule" element={<ClassSchedule classes={dashboardData.todayClasses} />} />
           <Route path="/timetable" element={<ProfessorTimetable />} />
           <Route path="/profile" element={<Profile />} /> 
         </Routes>

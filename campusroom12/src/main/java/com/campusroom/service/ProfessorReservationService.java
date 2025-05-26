@@ -41,9 +41,6 @@ public class ProfessorReservationService {
 
     @Autowired
     private NotificationRepository notificationRepository;
-
-    @Autowired
-    private ReservationEmailService reservationEmailService;
     
     @Autowired
     private SystemSettingsProvider settingsProvider;
@@ -170,13 +167,6 @@ if (conflictInfo.hasConflicts()) {
             // Create admin notification for pending reservations
             if ("PENDING".equals(savedReservation.getStatus())) {
                 createAdminNotification(savedReservation);
-                
-                // Send email to admins if notifications are enabled
-                if (currentSettings.isEmailNotifications() && 
-                    currentSettings.isReservationCreated()) {
-                    List<User> admins = userRepository.findByRole(User.Role.ADMIN);
-                    reservationEmailService.notifyAdminsAboutNewReservation(savedReservation, admins);
-                }
             }
 
             return convertToReservationDTO(savedReservation);

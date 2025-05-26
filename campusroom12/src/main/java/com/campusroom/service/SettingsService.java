@@ -35,14 +35,8 @@ public class SettingsService {
         settings.setAutoApproveProfessor(settingsDTO.isAutoApproveProfessor());
         settings.setAutoApproveStudent(settingsDTO.isAutoApproveStudent());
         
-        // Update notification settings
+        // Update email settings (uniquement pour les mots de passe)
         settings.setEmailNotifications(settingsDTO.isEmailNotifications());
-        settings.setNotificationReservationCreated(settingsDTO.isReservationCreated());
-        settings.setNotificationReservationApproved(settingsDTO.isReservationApproved());
-        settings.setNotificationReservationRejected(settingsDTO.isReservationRejected());
-        settings.setNotificationNewUser(settingsDTO.isNewUserRegistered());
-        settings.setNotificationSystemUpdates(settingsDTO.isSystemUpdates());
-        settings.setNotificationDailyDigest(settingsDTO.isDailyDigest());
         
         // Update reservation settings
         settings.setMaxDaysInAdvance(settingsDTO.getMaxDaysInAdvance());
@@ -72,12 +66,6 @@ public class SettingsService {
                 .autoApproveProfessor(settings.isAutoApproveProfessor())
                 .autoApproveStudent(settings.isAutoApproveStudent())
                 .emailNotifications(settings.isEmailNotifications())
-                .reservationCreated(settings.isNotificationReservationCreated())
-                .reservationApproved(settings.isNotificationReservationApproved())
-                .reservationRejected(settings.isNotificationReservationRejected())
-                .newUserRegistered(settings.isNotificationNewUser())
-                .systemUpdates(settings.isNotificationSystemUpdates())
-                .dailyDigest(settings.isNotificationDailyDigest())
                 .maxDaysInAdvance(settings.getMaxDaysInAdvance())
                 .minTimeBeforeReservation(settings.getMinTimeBeforeReservation())
                 .maxHoursPerReservation(settings.getMaxHoursPerReservation())

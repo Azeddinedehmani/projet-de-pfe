@@ -168,12 +168,6 @@ public class AuthService {
             userRepository.save(user);
             logger.info("User saved successfully!");
             
-            // Send notification email to admins if enabled
-            if (currentSettings.isEmailNotifications() && 
-                currentSettings.isNewUserRegistered()) {
-                notifyAdminsAboutNewUser(user);
-            }
-            
             return AuthResponse.builder()
                     .success(true)
                     .message("User registered successfully")
@@ -187,12 +181,6 @@ public class AuthService {
         }
     }
     
-    /**
-     * Notify admins about new user registration
-     */
-    private void notifyAdminsAboutNewUser(User newUser) {
-        // Implementation to email admins about new user
-    }
    // Replace the forgotPassword method with this:
 @Transactional
 public AuthResponse forgotPassword(ForgotPasswordRequest request) {

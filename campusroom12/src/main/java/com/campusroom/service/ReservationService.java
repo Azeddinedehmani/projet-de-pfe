@@ -32,9 +32,6 @@ public class ReservationService {
     private NotificationRepository notificationRepository;
     
     @Autowired
-    private ReservationEmailService reservationEmailService;
-    
-    @Autowired
     private SystemSettingsProvider settingsProvider;
     
     private SystemSettingsDTO currentSettings;
@@ -126,15 +123,9 @@ public class ReservationService {
                 .collect(Collectors.toList());
     }
     
-
-   @Transactional
+    @Transactional
     public ReservationDTO approveReservation(String id) {
         System.out.println("ReservationService: approveReservation(" + id + ")");
-
-        // Ensure settings are loaded
-        if (currentSettings == null) {
-            currentSettings = settingsProvider.getSettings();
-        }
 
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Reservation not found with id: " + id));
@@ -148,13 +139,6 @@ public class ReservationService {
 
         // Create notification for the user
         createApprovalNotification(updatedReservation);
-        
-        // Send email notification only if enabled in settings
-        if (currentSettings.isEmailNotifications() && 
-            currentSettings.isReservationApproved()) {
-            boolean emailSent = reservationEmailService.sendReservationStatusEmail(updatedReservation, "APPROVED", null);
-            System.out.println("Approval email sent: " + emailSent);
-        }
 
         return convertToReservationDTO(updatedReservation);
     }
@@ -162,11 +146,6 @@ public class ReservationService {
     @Transactional
     public ReservationDTO rejectReservation(String id, String reason) {
         System.out.println("ReservationService: rejectReservation(" + id + ")");
-
-        // Ensure settings are loaded
-        if (currentSettings == null) {
-            currentSettings = settingsProvider.getSettings();
-        }
 
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Reservation not found with id: " + id));
@@ -184,13 +163,6 @@ public class ReservationService {
 
         // Create notification for the user
         createRejectionNotification(updatedReservation);
-        
-        // Send email notification only if enabled in settings
-        if (currentSettings.isEmailNotifications() && 
-            currentSettings.isReservationRejected()) {
-            boolean emailSent = reservationEmailService.sendReservationStatusEmail(updatedReservation, "REJECTED", reason);
-            System.out.println("Rejection email sent: " + emailSent);
-        }
 
         return convertToReservationDTO(updatedReservation);
     }
@@ -218,10 +190,6 @@ public class ReservationService {
         
         // Create notification for the user
         createUserCancellationNotification(updatedReservation);
-        
-        // Send cancellation email to the user
-        boolean emailSent = reservationEmailService.sendCancellationEmail(updatedReservation);
-        System.out.println("Cancellation email sent: " + emailSent);
 
         return convertToReservationDTO(updatedReservation);
     }
@@ -261,7 +229,8 @@ public class ReservationService {
         + " from " + reservation.getStartTime() + " to " + reservation.getEndTime()
         + " has been rejected."
         + (reservation.getNotes() != null && !reservation.getNotes().isEmpty() ? 
-            " Reason: " + reservation.getNotes() : "")); notification.setUser(user);
+            " Reason: " + reservation.getNotes() : "")); 
+        notification.setUser(user);
         notification.setRead(false);
         notification.setIconClass("fas fa-times-circle");
         notification.setIconColor("red");
@@ -283,7 +252,8 @@ public class ReservationService {
         + " has cancelled their reservation for "
         + (reservation.getClassroom() != null ? reservation.getClassroom().getRoomNumber() : "N/A")
         + " on " + new SimpleDateFormat("dd/MM/yyyy").format(reservation.getDate())
-        + " from " + reservation.getStartTime() + " to " + reservation.getEndTime() + "."); notification.setUser(admin);
+        + " from " + reservation.getStartTime() + " to " + reservation.getEndTime() + "."); 
+        notification.setUser(admin);
             notification.setRead(false);
             notification.setIconClass("fas fa-calendar-times");
             notification.setIconColor("orange");
