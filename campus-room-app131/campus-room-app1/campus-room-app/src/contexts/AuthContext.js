@@ -165,6 +165,43 @@ export const AuthProvider = ({ children }) => {
       };
     }
   };
+  // Verify verification code function
+const verifyCode = async (email, verificationCode) => {
+  try {
+    const response = await authAPI.verifyCode(email, verificationCode);
+    const data = response.data;
+    
+    return { 
+      success: data.success !== false, 
+      message: data.message 
+    };
+  } catch (error) {
+    console.error('Code verification error:', error);
+    return { 
+      success: false, 
+      message: error.response?.data?.message || 'Failed to verify code' 
+    };
+  }
+};
+
+// Reset password with verification code function
+const resetPasswordWithCode = async (email, verificationCode, password, confirmPassword) => {
+  try {
+    const response = await authAPI.resetPasswordWithCode(email, verificationCode, password, confirmPassword);
+    const data = response.data;
+    
+    return { 
+      success: data.success !== false, 
+      message: data.message 
+    };
+  } catch (error) {
+    console.error('Password reset with code error:', error);
+    return { 
+      success: false, 
+      message: error.response?.data?.message || 'Failed to reset password' 
+    };
+  }
+};
 
   // Update user profile - now uses ProfileService
   const updateUserProfile = async (profileData) => {
@@ -222,6 +259,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  
+
   // Update current user data in state and localStorage
   const updateCurrentUser = (updatedUserData) => {
     if (currentUser && updatedUserData) {
@@ -249,6 +288,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     resetPassword,
     resetPasswordWithToken,
+    verifyCode,               
+    resetPasswordWithCode,    
     updateUserProfile,
     changePassword,
     updateCurrentUser

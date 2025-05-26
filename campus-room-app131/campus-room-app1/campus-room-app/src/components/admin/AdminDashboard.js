@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import useProfileLoader from '../../hooks/useProfileLoader';
 import NotificationService from '../../services/NotificationService';
 import NotificationPanel from '../common/NotificationPanel';
+import SharedDashboardService from '../../services/SharedDashboardService'; // Import shared service
 import '../../styles/dashboard.css';
 import '../../styles/notifications.css';
-
 
 // Component imports
 import SideNav from '../common/SideNav';
@@ -17,44 +18,124 @@ import AdminDemands from './AdminDemands';
 import AdminReports from './AdminReports';
 import AdminSettings from './AdminSettings';
 import Profile from '../common/Profile';
-import ClassGroupManagement from './ClassGroupManagement'; // Import the new component
+import ClassGroupManagement from './ClassGroupManagement';
 
 const AdminDashboard = () => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
+  
+  const { isProfileLoaded } = useProfileLoader();
+  
   const [pendingNotificationCount, setPendingNotificationCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  // State for dynamic dashboard data - SAME AS BEFORE
+  const [stats, setStats] = useState({
+    totalClassrooms: 0,
+    activeReservations: 0,
+    pendingDemands: 0,
+    totalUsers: 0,
+    totalClassGroups: 0,
+    classroomDetails: '',
+    userDetails: '',
+    isLoading: true
+  });
+  
+  const [recentReservations, setRecentReservations] = useState([]);
+  const [pendingDemands, setPendingDemands] = useState([]);
+  const [error, setError] = useState(null);
+
+  // Log profile loading status
+  useEffect(() => {
+    console.log('Admin profile loaded status:', isProfileLoaded);
+    console.log('Current user profile image:', currentUser?.profileImageUrl);
+  }, [isProfileLoaded, currentUser?.profileImageUrl]);
   
   // Fetch notification count on component mount
   useEffect(() => {
     const fetchNotificationCount = async () => {
       try {
-        // Get unread notifications count
         const count = await NotificationService.getUnreadCount();
         setPendingNotificationCount(count);
 
-        // Optionally set up polling to update the count periodically
         const interval = setInterval(async () => {
           const updatedCount = await NotificationService.getUnreadCount();
           setPendingNotificationCount(updatedCount);
-        }, 60000); // Update every minute
+        }, 60000);
 
         return () => clearInterval(interval);
       } catch (error) {
         console.error("Error fetching notification count:", error);
-        // In case of error, you could set a fallback value based on pendingDemands
         setPendingNotificationCount(pendingDemands.length);
       }
     };
 
     fetchNotificationCount();
+  }, [pendingDemands.length]);
+
+  // Fetch dashboard data
+  useEffect(() => {
+    fetchDashboardData();
   }, []);
+
+  // Auto-refresh effect
+  useEffect(() => {
+    let interval = null;
+    
+    if (autoRefreshEnabled) {
+      interval = setInterval(() => {
+        console.log('Auto-refreshing dashboard data using SharedDashboardService...');
+        fetchDashboardData();
+      }, 30000); // 30 seconds
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefreshEnabled]);
+
+  // UPDATED: Fetch data using SharedDashboardService
+  const fetchDashboardData = async () => {
+    setStats(prev => ({...prev, isLoading: true}));
+    setError(null);
+    
+    try {
+      console.log('Fetching dashboard data using SharedDashboardService...');
+      
+      // Use the shared service instead of direct API calls
+      const dashboardData = await SharedDashboardService.fetchDashboardData();
+      
+      // Update stats using shared service data
+      setStats(dashboardData.stats);
+      
+      // Update recent reservations and pending demands
+      setRecentReservations(dashboardData.recentReservations || []);
+      setPendingDemands(dashboardData.pendingDemands || []);
+      
+      // Set error if any
+      if (dashboardData.error) {
+        setError(dashboardData.error);
+      }
+      
+      // Update last updated timestamp
+      setLastUpdated(dashboardData.lastUpdated || new Date());
+      
+      console.log('Dashboard data updated successfully using SharedDashboardService');
+      
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError('Failed to load dashboard data. Please try again.');
+      setStats(prev => ({...prev, isLoading: false}));
+    }
+  };
 
   // Toggle notifications panel
   const toggleNotifications = () => {
     setShowNotifications(!showNotifications);
     
-    // If opening notifications, mark them as read
     if (!showNotifications) {
       markNotificationsAsRead();
     }
@@ -70,163 +151,160 @@ const AdminDashboard = () => {
     }
   };
   
-  // Mock data - in a real app, these would come from an API
-  const [stats, setStats] = useState({
-    totalClassrooms: 24,
-    activeReservations: 18,
-    pendingDemands: 7,
-    totalUsers: 156,
-    totalClassGroups: 3 // Added new stat for class groups
-  });
-  
-  const [recentReservations, setRecentReservations] = useState([
-    {
-      id: 'RES1001',
-      classroom: 'Room 101',
-      reservedBy: 'Professor Smith',
-      role: 'Professor',
-      date: 'Mar 25, 2025',
-      time: '10:00 - 12:00',
-      status: 'Approved'
-    },
-    {
-      id: 'RES1002',
-      classroom: 'Room 203',
-      reservedBy: 'John Doe',
-      role: 'Student',
-      date: 'Mar 26, 2025',
-      time: '14:00 - 16:00',
-      status: 'Pending'
-    },
-    {
-      id: 'RES1003',
-      classroom: 'Lab 305',
-      reservedBy: 'Professor Johnson',
-      role: 'Professor',
-      date: 'Mar 27, 2025',
-      time: '09:00 - 11:00',
-      status: 'Approved'
-    }
-  ]);
-  
-  const [pendingDemands, setPendingDemands] = useState([
-    {
-      id: 'DEM1001',
-      classroom: 'Room 203',
-      requestedBy: 'John Doe',
-      role: 'Student',
-      date: 'Mar 26, 2025',
-      time: '14:00 - 16:00',
-      purpose: 'Group Study'
-    },
-    {
-      id: 'DEM1002',
-      classroom: 'Room 105',
-      requestedBy: 'Jane Smith',
-      role: 'Student',
-      date: 'Mar 28, 2025',
-      time: '10:00 - 12:00',
-      purpose: 'Project Meeting'
-    },
-    {
-      id: 'DEM1003',
-      classroom: 'Lab 201',
-      requestedBy: 'Professor Davis',
-      role: 'Professor',
-      date: 'Apr 1, 2025',
-      time: '13:00 - 15:00',
-      purpose: 'Extra Lab Session'
-    }
-  ]);
-
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
-  const approveReservation = (id) => {
-    // In a real app, this would call an API to update the database
-    const updatedReservations = recentReservations.map(reservation => {
-      if (reservation.id === id) {
-        return { ...reservation, status: 'Approved' };
-      }
-      return reservation;
-    });
-    
-    setRecentReservations(updatedReservations);
-    
-    // Also update pending demands
-    const updatedDemands = pendingDemands.filter(demand => demand.id !== id);
-    setPendingDemands(updatedDemands);
-    
-    // Update notification count after approval
-    setPendingNotificationCount(prev => Math.max(0, prev - 1));
-    
-    alert('Reservation approved successfully.');
+  const toggleAutoRefresh = () => {
+    setAutoRefreshEnabled(!autoRefreshEnabled);
   };
 
-  const rejectReservation = (id) => {
-    if (window.confirm('Are you sure you want to reject this reservation?')) {
-      // Remove from recent reservations if exists
-      const updatedReservations = recentReservations.filter(
-        reservation => reservation.id !== id
-      );
-      setRecentReservations(updatedReservations);
+  // UPDATED: Approval/rejection functions now also invalidate shared cache
+  const approveReservation = async (id) => {
+    try {
+      // Try admin endpoint first, fall back to regular endpoint
+      let response;
+      try {
+        response = await SharedDashboardService.API?.put(`/api/admin/approve-reservation/${id}`);
+      } catch (err) {
+        console.log("Falling back to reservations approve endpoint");
+        response = await SharedDashboardService.API?.put(`/api/reservations/${id}/approve`);
+      }
       
-      // Remove from pending demands if exists
-      const updatedDemands = pendingDemands.filter(demand => demand.id !== id);
-      setPendingDemands(updatedDemands);
-      
-      // Update notification count after rejection
-      setPendingNotificationCount(prev => Math.max(0, prev - 1));
-      
-      alert('Reservation rejected successfully.');
+      if (response && response.data) {
+        // Update local state
+        setRecentReservations(prevReservations => 
+          prevReservations.map(reservation => 
+            reservation.id === id ? { ...reservation, status: 'Approved' } : reservation
+          )
+        );
+        
+        setPendingDemands(prevDemands => 
+          prevDemands.filter(demand => demand.id !== id)
+        );
+        
+        setPendingNotificationCount(prev => Math.max(0, prev - 1));
+        
+        // Invalidate shared cache and refresh
+        SharedDashboardService.invalidateCache();
+        fetchDashboardData();
+        
+        alert('Reservation approved successfully.');
+      }
+    } catch (err) {
+      console.error('Error approving reservation:', err);
+      alert('Failed to approve reservation. Please try again.');
     }
   };
 
-  // Content for the main dashboard view
+  const rejectReservation = async (id) => {
+    if (window.confirm('Are you sure you want to reject this reservation?')) {
+      try {
+        let response;
+        try {
+          response = await SharedDashboardService.API?.put(`/api/admin/reject-reservation/${id}`, { 
+            reason: 'Rejected by administrator' 
+          });
+        } catch (err) {
+          console.log("Falling back to reservations reject endpoint");
+          response = await SharedDashboardService.API?.put(`/api/reservations/${id}/reject`, { 
+            reason: 'Rejected by administrator' 
+          });
+        }
+        
+        if (response && response.data) {
+          setRecentReservations(prevReservations => 
+            prevReservations.filter(reservation => reservation.id !== id)
+          );
+          
+          setPendingDemands(prevDemands => 
+            prevDemands.filter(demand => demand.id !== id)
+          );
+          
+          setPendingNotificationCount(prev => Math.max(0, prev - 1));
+          
+          // Invalidate shared cache and refresh
+          SharedDashboardService.invalidateCache();
+          fetchDashboardData();
+          
+          alert('Reservation rejected successfully.');
+        }
+      } catch (err) {
+        console.error('Error rejecting reservation:', err);
+        alert('Failed to reject reservation. Please try again.');
+      }
+    }
+  };
+
+  // Content for the main dashboard view - SAME AS BEFORE
   const DashboardHome = () => (
     <div className="main-content">
-      {/* Stats Overview */}
+      {error && (
+        <div className="alert alert-error">
+          {error}
+          <button 
+            className="btn-refresh ml-2"
+            onClick={fetchDashboardData}
+          >
+            <i className="fas fa-sync-alt"></i> Retry
+          </button>
+        </div>
+      )}
+
+      {/* Welcome Section */}
+      <div className="welcome-section">
+        <div className="welcome-content">
+          <h2>Welcome, {currentUser?.firstName || 'Admin'}!</h2>
+          <p>Manage the campus room booking system from this dashboard.</p>
+          {!isProfileLoaded && (
+            <div className="profile-loading-indicator">
+              <small>Loading complete profile data...</small>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Stats Overview - SAME LABELS AND DATA */}
       <div className="stats-container">
         <StatCard
           icon="fas fa-chalkboard"
           title="Total Classrooms"
-          value={stats.totalClassrooms}
+          value={stats.isLoading ? '...' : stats.totalClassrooms}
           color="blue"
-          description="8 classrooms, 10 labs, 6 lecture halls"
+          description={stats.isLoading ? 'Loading...' : stats.classroomDetails}
         />
         <StatCard
           icon="fas fa-calendar-check"
           title="Active Reservations"
-          value={stats.activeReservations}
+          value={stats.isLoading ? '...' : stats.activeReservations}
           color="green"
-          description="12 by professors, 6 by students"
+          description={stats.isLoading ? 'Loading...' : 'Currently active reservations'}
         />
         <StatCard
           icon="fas fa-bell"
           title="Pending Demands"
-          value={stats.pendingDemands}
+          value={stats.isLoading ? '...' : stats.pendingDemands}
           color="yellow"
-          description="Requires your approval"
+          description={stats.isLoading ? 'Loading...' : 'Requires your approval'}
         />
         <StatCard
           icon="fas fa-users"
           title="Total Users"
-          value={stats.totalUsers}
+          value={stats.isLoading ? '...' : stats.totalUsers}
           color="red"
-          description="42 professors, 114 students"
+          description={stats.isLoading ? 'Loading...' : stats.userDetails}
         />
         <StatCard
           icon="fas fa-graduation-cap"
           title="Class Groups"
-          value={stats.totalClassGroups}
+          value={stats.isLoading ? '...' : stats.totalClassGroups}
           color="purple"
-          description="Active course groups"
+          description={stats.isLoading ? 'Loading...' : 'Active course groups'}
         />
       </div>
       
-      {/* Recent Reservations */}
+      {/* Recent Reservations - SAME AS BEFORE */}
       <div className="section">
         <div className="section-header">
           <h2>Recent Reservations</h2>
@@ -236,72 +314,83 @@ const AdminDashboard = () => {
         </div>
         
         <div className="data-table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Classroom</th>
-                <th>Reserved By</th>
-                <th>Role</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentReservations.map(reservation => (
-                <tr key={reservation.id}>
-                  <td>{reservation.id}</td>
-                  <td>{reservation.classroom}</td>
-                  <td>{reservation.reservedBy}</td>
-                  <td>{reservation.role}</td>
-                  <td>{reservation.date}</td>
-                  <td>{reservation.time}</td>
-                  <td>
-                    <span className={`status-badge status-${reservation.status.toLowerCase()}`}>
-                      {reservation.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="table-actions">
-                      <button className="btn-table btn-view">
-                        View
-                      </button>
-                      {reservation.status === 'Pending' && (
-                        <>
-                          <button 
-                            className="btn-table btn-edit"
-                            onClick={() => approveReservation(reservation.id)}
-                          >
-                            Approve
-                          </button>
+          {stats.isLoading ? (
+            <div className="loading-spinner-container">
+              <div className="loading-spinner"></div>
+              <p>Loading reservations...</p>
+            </div>
+          ) : recentReservations.length === 0 ? (
+            <div className="no-data-message">
+              <p>No recent reservations found.</p>
+            </div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Classroom</th>
+                  <th>Reserved By</th>
+                  <th>Role</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentReservations.map(reservation => (
+                  <tr key={reservation.id}>
+                    <td>{reservation.id}</td>
+                    <td>{reservation.classroom}</td>
+                    <td>{reservation.reservedBy}</td>
+                    <td>{reservation.role}</td>
+                    <td>{reservation.date}</td>
+                    <td>{reservation.time}</td>
+                    <td>
+                      <span className={`status-badge status-${(reservation.status || '').toLowerCase()}`}>
+                        {reservation.status || 'Unknown'}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="table-actions">
+                        <button className="btn-table btn-view">
+                          View
+                        </button>
+                        {(reservation.status === 'Pending' || reservation.status === 'PENDING') && (
+                          <>
+                            <button 
+                              className="btn-table btn-edit"
+                              onClick={() => approveReservation(reservation.id)}
+                            >
+                              Approve
+                            </button>
+                            <button 
+                              className="btn-table btn-delete"
+                              onClick={() => rejectReservation(reservation.id)}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        {(reservation.status === 'Approved' || reservation.status === 'APPROVED') && (
                           <button 
                             className="btn-table btn-delete"
                             onClick={() => rejectReservation(reservation.id)}
                           >
-                            Reject
+                            Cancel
                           </button>
-                        </>
-                      )}
-                      {reservation.status === 'Approved' && (
-                        <button 
-                          className="btn-table btn-delete"
-                          onClick={() => rejectReservation(reservation.id)}
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
       
-      {/* Pending Demands */}
+      {/* Pending Demands - SAME AS BEFORE */}
       <div className="section">
         <div className="section-header">
           <h2>Pending Approval Demands</h2>
@@ -311,65 +400,76 @@ const AdminDashboard = () => {
         </div>
         
         <div className="data-table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Classroom</th>
-                <th>Requested By</th>
-                <th>Role</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Purpose</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendingDemands.map(demand => (
-                <tr key={demand.id}>
-                  <td>{demand.id}</td>
-                  <td>{demand.classroom}</td>
-                  <td>{demand.requestedBy}</td>
-                  <td>{demand.role}</td>
-                  <td>{demand.date}</td>
-                  <td>{demand.time}</td>
-                  <td>{demand.purpose}</td>
-                  <td>
-                    <div className="table-actions">
-                      <button className="btn-table btn-view">
-                        View
-                      </button>
-                      <button 
-                        className="btn-table btn-edit"
-                        onClick={() => approveReservation(demand.id)}
-                      >
-                        Approve
-                      </button>
-                      <button 
-                        className="btn-table btn-delete"
-                        onClick={() => rejectReservation(demand.id)}
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </td>
+          {stats.isLoading ? (
+            <div className="loading-spinner-container">
+              <div className="loading-spinner"></div>
+              <p>Loading pending demands...</p>
+            </div>
+          ) : pendingDemands.length === 0 ? (
+            <div className="no-data-message">
+              <p>No pending demands found.</p>
+            </div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Classroom</th>
+                  <th>Requested By</th>
+                  <th>Role</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Purpose</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {pendingDemands.map(demand => (
+                  <tr key={demand.id}>
+                    <td>{demand.id}</td>
+                    <td>{demand.classroom}</td>
+                    <td>{demand.reservedBy || demand.requestedBy}</td>
+                    <td>{demand.role}</td>
+                    <td>{demand.date}</td>
+                    <td>{demand.time}</td>
+                    <td>{demand.purpose}</td>
+                    <td>
+                      <div className="table-actions">
+                        <button className="btn-table btn-view">
+                          View
+                        </button>
+                        <button 
+                          className="btn-table btn-edit"
+                          onClick={() => approveReservation(demand.id)}
+                        >
+                          Approve
+                        </button>
+                        <button 
+                          className="btn-table btn-delete"
+                          onClick={() => rejectReservation(demand.id)}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
   );
 
-  // Sidebar navigation links - updated to include Class Groups
+  // Sidebar navigation links - SAME AS BEFORE
   const navLinks = [
     { to: '/admin', icon: 'fas fa-tachometer-alt', text: 'Dashboard', exact: true },
     { to: '/admin/classrooms', icon: 'fas fa-chalkboard', text: 'Classrooms' },
     { to: '/admin/reservations', icon: 'fas fa-calendar-check', text: 'Reservations' },
     { to: '/admin/demands', icon: 'fas fa-bell', text: 'Demands' },
     { to: '/admin/users', icon: 'fas fa-users', text: 'Users' },
-    { to: '/admin/class-groups', icon: 'fas fa-graduation-cap', text: 'Class Groups' }, // Added new link
+    { to: '/admin/class-groups', icon: 'fas fa-graduation-cap', text: 'Class Groups' },
     { to: '/admin/reports', icon: 'fas fa-chart-bar', text: 'Reports' },
     { to: '/admin/settings', icon: 'fas fa-cog', text: 'Settings' },
     { to: '/admin/profile', icon: 'fas fa-user', text: 'Profile' }
@@ -384,12 +484,18 @@ const AdminDashboard = () => {
         onLogout={handleLogout}
         currentUser={currentUser}
         userRole="Admin"
-        notificationCount={pendingNotificationCount}  // Pass the count to SideNav
+        notificationCount={pendingNotificationCount}
       />
       
       <div className="content-wrapper">
         <div className="header">
           <h1>Admin Dashboard</h1>
+          {lastUpdated && (
+            <span className="last-updated">
+              Last updated: {lastUpdated.toLocaleTimeString()} (Shared with Reports)
+            </span>
+          )}
+          
           <div className="header-actions">
             <div className="notification-bell-wrapper">
               <button 
@@ -403,6 +509,21 @@ const AdminDashboard = () => {
                 )}
               </button>
             </div>
+            <button 
+              className="btn-refresh"
+              onClick={fetchDashboardData}
+              title="Refresh dashboard data"
+            >
+              <i className="fas fa-sync-alt"></i>
+            </button>
+            <button 
+              className={`btn-auto-refresh ${autoRefreshEnabled ? 'active' : ''}`}
+              onClick={toggleAutoRefresh}
+              title={autoRefreshEnabled ? "Disable auto-refresh" : "Enable auto-refresh"}
+            >
+              <i className={`fas fa-${autoRefreshEnabled ? 'toggle-on' : 'toggle-off'}`}></i>
+              Auto
+            </button>
             <button className="action-button">
               <i className="fas fa-bars"></i>
             </button>
@@ -418,11 +539,11 @@ const AdminDashboard = () => {
         
         <Routes>
           <Route path="/" element={<DashboardHome />} />
-          <Route path="/reservations" element={<ReservationsList reservations={recentReservations} notificationCount={pendingNotificationCount} />} />
+          <Route path="/reservations" element={<ReservationsList />} />
           <Route path="/users" element={<UserManagement />} />
           <Route path="/classrooms" element={<AdminClassrooms />} />
           <Route path="/demands" element={<AdminDemands />} />
-          <Route path="/class-groups" element={<ClassGroupManagement />} /> {/* New route */}
+          <Route path="/class-groups" element={<ClassGroupManagement />} />
           <Route path="/settings" element={<AdminSettings />} />
           <Route path="/reports" element={<AdminReports />} />
           <Route path="/profile" element={<Profile />} />

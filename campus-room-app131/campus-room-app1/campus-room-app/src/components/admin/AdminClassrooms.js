@@ -132,40 +132,54 @@ const AdminClassrooms = () => {
     }
   };
   
-  // Gérer la soumission du formulaire pour les salles de classe
-  const handleClassroomSubmit = async () => {
-    const featuresList = formData.features.split(',').map(feature => feature.trim());
-    
-    // Format selon la structure ClassroomDTO de votre backend Java
-    const classroomData = {
-      id: formData.id || null, // utiliser null au lieu de undefined pour un nouveau classroom
-      roomNumber: formData.name,
-      type: formData.type,
-      capacity: parseInt(formData.capacity),
-      features: featuresList,
-      image: formData.image // Use the image URL (either regular or localStorage)
-    };
-    
-    console.log("Données envoyées:", classroomData); // Pour debug
-    
-    if (modalMode === 'add') {
-      try {
-        // Utiliser l'API directement
-        const response = await API.post('/api/rooms/classrooms', classroomData);
-        console.log("Réponse du backend après création:", response.data);
-        
-        const newClassroom = response.data;
-        setClassrooms([...classrooms, newClassroom]);
-        
-        // Also update localStorage as backup
-        const updatedClassrooms = [...classrooms, newClassroom];
-        localStorage.setItem('availableClassrooms', JSON.stringify(updatedClassrooms));
-        
-        alert('Classroom added successfully.');
-      } catch (err) {
-        console.error("API error details:", err.response || err);
-        
-        // Fallback: add to localStorage only
+ // Replace the handleClassroomSubmit method in AdminClassrooms.js with this improved version:
+
+const handleClassroomSubmit = async () => {
+  const featuresList = formData.features.split(',').map(feature => feature.trim());
+  
+  // Format selon la structure ClassroomDTO de votre backend Java
+  const classroomData = {
+    id: formData.id || null,
+    roomNumber: formData.name,
+    type: formData.type,
+    capacity: parseInt(formData.capacity),
+    features: featuresList,
+    image: formData.image
+  };
+  
+  console.log("Données envoyées:", classroomData);
+  
+  if (modalMode === 'add') {
+    try {
+      const response = await API.post('/api/rooms/classrooms', classroomData);
+      console.log("Réponse du backend après création:", response.data);
+      
+      const newClassroom = response.data;
+      setClassrooms([...classrooms, newClassroom]);
+      
+      // Also update localStorage as backup
+      const updatedClassrooms = [...classrooms, newClassroom];
+      localStorage.setItem('availableClassrooms', JSON.stringify(updatedClassrooms));
+      
+      alert('Classroom added successfully.');
+    } catch (err) {
+      console.error("API error details:", err.response || err);
+      
+      // Check if it's a validation error from the backend
+      if (err.response && err.response.status === 400 && err.response.data && err.response.data.message) {
+        // This is a validation error (like duplicate room number)
+        alert(`Error: ${err.response.data.message}`);
+        return; // Don't fall back to localStorage for validation errors
+      }
+      
+      // Check for other client errors (401, 403, etc.)
+      if (err.response && err.response.status >= 400 && err.response.status < 500) {
+        alert(`Error: ${err.response.data?.message || 'Invalid request. Please check your input.'}`);
+        return;
+      }
+      
+      // Only fall back to localStorage for network/server errors
+      if (!err.response || err.response.status >= 500) {
         const newClassroom = {
           ...classroomData,
           id: `C${Date.now().toString().substr(-4)}`,
@@ -175,33 +189,45 @@ const AdminClassrooms = () => {
         setClassrooms(updatedClassrooms);
         localStorage.setItem('availableClassrooms', JSON.stringify(updatedClassrooms));
         
-        alert('Classroom added to local storage (offline mode).');
+        alert('Server unavailable. Classroom added to local storage (offline mode).');
       }
-    } else {
-      try {
-        // Utiliser l'API directement
-        const response = await API.put(`/api/rooms/classrooms/${selectedRoom.id}`, classroomData);
-        console.log("Réponse du backend après mise à jour:", response.data);
-        
-        const updatedClassroom = response.data;
-        
-        const updatedClassrooms = classrooms.map(classroom => {
-          if (classroom.id === selectedRoom.id) {
-            return updatedClassroom;
-          }
-          return classroom;
-        });
-        
-        setClassrooms(updatedClassrooms);
-        
-        // Also update localStorage as backup
-        localStorage.setItem('availableClassrooms', JSON.stringify(updatedClassrooms));
-        
-        alert('Classroom updated successfully.');
-      } catch (err) {
-        console.error("API error details:", err.response || err);
-        
-        // Fallback: update in localStorage only
+    }
+  } else {
+    // Edit mode
+    try {
+      const response = await API.put(`/api/rooms/classrooms/${selectedRoom.id}`, classroomData);
+      console.log("Réponse du backend après mise à jour:", response.data);
+      
+      const updatedClassroom = response.data;
+      
+      const updatedClassrooms = classrooms.map(classroom => {
+        if (classroom.id === selectedRoom.id) {
+          return updatedClassroom;
+        }
+        return classroom;
+      });
+      
+      setClassrooms(updatedClassrooms);
+      localStorage.setItem('availableClassrooms', JSON.stringify(updatedClassrooms));
+      
+      alert('Classroom updated successfully.');
+    } catch (err) {
+      console.error("API error details:", err.response || err);
+      
+      // Check if it's a validation error from the backend
+      if (err.response && err.response.status === 400 && err.response.data && err.response.data.message) {
+        alert(`Error: ${err.response.data.message}`);
+        return;
+      }
+      
+      // Check for other client errors
+      if (err.response && err.response.status >= 400 && err.response.status < 500) {
+        alert(`Error: ${err.response.data?.message || 'Invalid request. Please check your input.'}`);
+        return;
+      }
+      
+      // Only fall back to localStorage for network/server errors
+      if (!err.response || err.response.status >= 500) {
         const updatedClassrooms = classrooms.map(classroom => {
           if (classroom.id === selectedRoom.id) {
             return {
@@ -219,11 +245,11 @@ const AdminClassrooms = () => {
         setClassrooms(updatedClassrooms);
         localStorage.setItem('availableClassrooms', JSON.stringify(updatedClassrooms));
         
-        alert('Classroom updated in local storage (offline mode).');
+        alert('Server unavailable. Classroom updated in local storage (offline mode).');
       }
     }
-  };
-  
+  }
+};
   // Gérer la suppression d'une salle
   const handleDeleteRoom = async (id, type) => {
     if (window.confirm('Are you sure you want to delete this room?')) {

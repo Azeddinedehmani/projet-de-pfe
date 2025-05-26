@@ -138,11 +138,13 @@ public class ProfessorReservationService {
             // Validate based on settings
             validateReservationRequest(requestDTO, date);
 
-            // Check for conflicts using the centralized availability service
-            if (!availabilityService.isClassroomAvailable(classroom.getId(), date, 
-                                                      requestDTO.getStartTime(), requestDTO.getEndTime())) {
-                throw new RuntimeException("This classroom is no longer available for this time slot");
-            }
+           // Check for conflicts using detailed conflict detection
+ClassroomAvailabilityService.ConflictInfo conflictInfo = availabilityService.getDetailedConflictInfo(
+    classroom.getId(), date, requestDTO.getStartTime(), requestDTO.getEndTime());
+
+if (conflictInfo.hasConflicts()) {
+    throw new RuntimeException("Classroom conflict detected:\n" + conflictInfo.getDetailedMessage());
+}
 
             // Create the reservation with UUID
             Reservation reservation = new Reservation();
@@ -239,10 +241,12 @@ public class ProfessorReservationService {
                 !reservation.getStartTime().equals(requestDTO.getStartTime()) ||
                 !reservation.getEndTime().equals(requestDTO.getEndTime())) {
                 
-                if (!availabilityService.isClassroomAvailable(newClassroom.getId(), date, 
-                                                         requestDTO.getStartTime(), requestDTO.getEndTime())) {
-                    throw new RuntimeException("La salle n'est pas disponible pour cette plage horaire");
-                }
+               ClassroomAvailabilityService.ConflictInfo conflictInfo = availabilityService.getDetailedConflictInfo(
+    newClassroom.getId(), date, requestDTO.getStartTime(), requestDTO.getEndTime());
+
+if (conflictInfo.hasConflicts()) {
+    throw new RuntimeException("Classroom conflict detected:\n" + conflictInfo.getDetailedMessage());
+}
             }
             
             // Mettre à jour la réservation avec les nouvelles valeurs

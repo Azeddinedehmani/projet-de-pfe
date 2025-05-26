@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import useProfileLoader from '../../hooks/useProfileLoader'; // Add this import
 import ClassroomReservation from './ClassroomReservation';
 import ClassSchedule from './ClassSchedule';
 import ProfessorTimetable from './ProfessorTimetable';
@@ -10,6 +11,7 @@ import NotificationPanel from '../common/NotificationPanel';
 import '../../styles/dashboard.css';
 import '../../styles/notifications.css';
 import Profile from '../common/Profile';
+import { API } from '../../api';
 
 // Component imports
 import SideNav from '../common/SideNav';
@@ -20,6 +22,10 @@ const ProfessorDashboard = () => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Add this line to load profile data immediately after login
+  const { isProfileLoaded } = useProfileLoader();
+  
   const [showModal, setShowModal] = useState(false);
   const [selectedClassroom, setSelectedClassroom] = useState(null);
   const [reservations, setReservations] = useState([]);
@@ -28,81 +34,29 @@ const ProfessorDashboard = () => {
   const [pageTitle, setPageTitle] = useState('Dashboard');
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Mock data - in a real app, these would come from an API or database
-  const [myReservations, setMyReservations] = useState([
-    {
-      id: '1001',
-      classroom: 'Room 101',
-      date: '2025-03-25',
-      time: '10:00 - 12:00',
-      purpose: 'Physics 101 Lecture',
-      status: 'Approved'
-    },
-    {
-      id: '1003',
-      classroom: 'Lab 305',
-      date: '2025-03-27',
-      time: '09:00 - 11:00',
-      purpose: 'Chemistry Lab Session',
-      status: 'Approved'
-    },
-    {
-      id: '1004',
-      classroom: 'Room 201',
-      date: '2025-03-29',
-      time: '14:00 - 16:00',
-      purpose: 'Office Hours',
-      status: 'Pending'
+  // Dynamic data states
+  const [dashboardData, setDashboardData] = useState({
+    myReservations: [],
+    todayClasses: [],
+    availableClassrooms: [],
+    stats: {
+      activeReservations: 0,
+      upcomingClasses: 0,
+      totalReservations: 0,
+      pendingReservations: 0
     }
-  ]);
-
-  const [availableClassrooms, setAvailableClassrooms] = useState([
-    {
-      id: 'C001',
-      roomNumber: 'Room 101',
-      type: 'Lecture Hall',
-      capacity: 120,
-      features: ['Projector', 'Whiteboard', 'Audio System']
-    },
-    {
-      id: 'C002',
-      roomNumber: 'Room 203',
-      type: 'Classroom',
-      capacity: 40,
-      features: ['Projector', 'Whiteboard']
-    },
-    {
-      id: 'C003',
-      roomNumber: 'Lab 305',
-      type: 'Computer Lab',
-      capacity: 30,
-      features: ['Computers', 'Projector', 'Whiteboard']
-    }
-  ]);
+  });
   
-  const [todayClasses, setTodayClasses] = useState([
-    {
-      id: 'CL001',
-      name: 'PHYS 101: Introduction to Physics',
-      time: '9:00 - 10:30 AM',
-      location: 'Room 101',
-      students: 35
-    },
-    {
-      id: 'CL002',
-      name: 'PHYS 301: Advanced Mechanics',
-      time: '11:00 AM - 12:30 PM',
-      location: 'Room 203',
-      students: 22
-    },
-    {
-      id: 'CL003',
-      name: 'Faculty Meeting',
-      time: '2:00 - 4:00 PM',
-      location: 'Conference Room 105',
-      info: 'Department Planning'
-    }
-  ]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState(null);
+  const [debugInfo, setDebugInfo] = useState('');
+
+  // Log profile loading status
+  useEffect(() => {
+    console.log('Professor profile loaded status:', isProfileLoaded);
+    console.log('Current user profile image:', currentUser?.profileImageUrl);
+  }, [isProfileLoaded, currentUser?.profileImageUrl]);
 
   // Check if user is authenticated
   useEffect(() => {
@@ -143,33 +97,244 @@ const ProfessorDashboard = () => {
     }
   }, [location]);
 
-  // Initialize state with localStorage on component mount
-  useEffect(() => {
-    const storedReservations = localStorage.getItem('professorReservations');
-    if (storedReservations) {
-      setMyReservations(JSON.parse(storedReservations));
-    } else {
-      // Save initial reservations if none in localStorage
-      localStorage.setItem('professorReservations', JSON.stringify(myReservations));
+  // Fetch professor's reservations
+  const fetchMyReservations = useCallback(async () => {
+    try {
+      console.log('Fetching reservations for professor:', currentUser?.email);
+      
+      // Try the direct professor API endpoint first
+      let response;
+      try {
+        response = await API.professorAPI.getProfessorReservations();
+        console.log('✅ Fetched reservations from professor endpoint:', response.data?.length || 0);
+      } catch (err) {
+        console.log('❌ Professor endpoint failed, trying fallback');
+        response = await API.professorAPI.getMyReservations();
+        console.log('✅ Fetched reservations from fallback endpoint:', response.data?.length || 0);
+      }
+      
+      const reservations = response.data || [];
+      
+      // Format reservations consistently
+      const formattedReservations = reservations.map(res => ({
+        id: res.id || '',
+        classroom: res.classroom || res.roomNumber || res.room || '',
+        date: res.date || '',
+        time: res.time || `${res.startTime || ''} - ${res.endTime || ''}`,
+        startTime: res.startTime || '',
+        endTime: res.endTime || '',
+        purpose: res.purpose || '',
+        notes: res.notes || '',
+        status: res.status || 'Pending',
+        classroomId: res.classroomId || ''
+      }));
+
+      // Update localStorage as backup
+      localStorage.setItem('professorReservations', JSON.stringify(formattedReservations));
+      
+      return formattedReservations;
+    } catch (error) {
+      console.error('❌ Error fetching reservations:', error);
+      
+      // Fallback to localStorage
+      const stored = localStorage.getItem('professorReservations');
+      const fallbackReservations = stored ? JSON.parse(stored) : [];
+      console.log('📱 Using localStorage fallback:', fallbackReservations.length, 'reservations');
+      return fallbackReservations;
+    }
+  }, [currentUser]);
+
+  // Fetch professor's timetable
+  const fetchMyTimetable = useCallback(async () => {
+    try {
+      console.log('Fetching timetable for professor:', currentUser?.email);
+      
+      let response;
+      try {
+        // Try the timetable API first
+        response = await API.timetableAPI.getMyTimetable();
+        console.log('✅ Fetched timetable from timetable API:', response.data);
+      } catch (err) {
+        console.log('❌ Timetable API failed, trying direct professor endpoint');
+        // Try direct API call as fallback
+        response = await API.get('/professor/timetable');
+        console.log('✅ Fetched timetable from professor endpoint:', response.data);
+      }
+      
+      return response.data || {};
+    } catch (error) {
+      console.error('❌ Error fetching timetable:', error);
+      return {};
+    }
+  }, [currentUser]);
+
+  // Calculate pending reservations for the professor
+  const calculatePendingReservations = (reservations) => {
+    if (!Array.isArray(reservations)) return 0;
+    
+    const pendingCount = reservations.filter(reservation => 
+      reservation.status?.toLowerCase() === 'pending'
+    ).length;
+    
+    console.log('📋 Pending reservations:', pendingCount);
+    return pendingCount;
+  };
+
+  // Fetch available classrooms
+  const fetchAvailableClassrooms = useCallback(async () => {
+    try {
+      const response = await API.roomAPI.getAllClassrooms();
+      console.log('✅ Fetched classrooms:', response.data?.length || 0);
+      return response.data || [];
+    } catch (error) {
+      console.error('❌ Error fetching classrooms:', error);
+      
+      // Try from localStorage as fallback
+      const stored = localStorage.getItem('availableClassrooms');
+      const fallbackClassrooms = stored ? JSON.parse(stored) : [];
+      console.log('📱 Using localStorage fallback:', fallbackClassrooms.length, 'classrooms');
+      return fallbackClassrooms;
+    }
+  }, []);
+
+  // Extract today's classes from timetable data
+  const extractTodayClasses = (timetableData) => {
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    let todayClasses = [];
+
+    if (Array.isArray(timetableData)) {
+      // If timetableData is an array of entries
+      todayClasses = timetableData
+        .filter(entry => entry.day === today)
+        .map(entry => ({
+          id: entry.id || `class-${Math.random().toString(36).substr(2, 9)}`,
+          name: entry.name || 'Unnamed Class',
+          time: `${entry.startTime || ''} - ${entry.endTime || ''}`,
+          location: entry.location || 'TBD',
+          type: entry.type || 'Class',
+          instructor: entry.instructor || '',
+          students: entry.students || 0,
+          info: entry.instructor ? `Assistant: ${entry.instructor}` : undefined
+        }));
+    } else if (timetableData && typeof timetableData === 'object') {
+      // If timetableData is grouped by day
+      const todayEntries = timetableData[today] || [];
+      todayClasses = todayEntries.map(entry => ({
+        id: entry.id || `class-${Math.random().toString(36).substr(2, 9)}`,
+        name: entry.name || 'Unnamed Class',
+        time: `${entry.startTime || ''} - ${entry.endTime || ''}`,
+        location: entry.location || 'TBD',
+        type: entry.type || 'Class',
+        instructor: entry.instructor || '',
+        students: entry.students || 0,
+        info: entry.instructor ? `Assistant: ${entry.instructor}` : undefined
+      }));
     }
 
-    // Fetch notification count
-    fetchNotificationCount();
+    // Sort by time
+    todayClasses.sort((a, b) => {
+      const timeA = a.time.split(' - ')[0] || '00:00';
+      const timeB = b.time.split(' - ')[0] || '00:00';
+      return timeA.localeCompare(timeB);
+    });
 
-    // Set up interval to refresh notification count periodically
-    const interval = setInterval(fetchNotificationCount, 60000); // every minute
-    
-    return () => clearInterval(interval);
-  }, []);
+    console.log('📅 Today\'s classes:', todayClasses.length);
+    return todayClasses;
+  };
 
   // Fetch notification count
   const fetchNotificationCount = async () => {
     try {
       const count = await NotificationService.getUnreadCount();
-      setNotificationCount(count);
+      return count;
     } catch (error) {
       console.error('Error fetching notification count:', error);
+      return 0;
     }
+  };
+
+  // Comprehensive data fetch function
+  const fetchProfessorDashboardData = useCallback(async () => {
+    if (!currentUser) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('🚀 Fetching professor dashboard data for:', currentUser.email);
+      
+      // Fetch all data concurrently
+      const [
+        myReservations,
+        timetableData,
+        availableClassrooms,
+        notificationCount
+      ] = await Promise.all([
+        fetchMyReservations(),
+        fetchMyTimetable(),
+        fetchAvailableClassrooms(),
+        fetchNotificationCount()
+      ]);
+
+      // Extract today's classes from timetable
+      const todayClasses = extractTodayClasses(timetableData);
+
+      // Calculate pending reservations
+      const pendingReservations = calculatePendingReservations(myReservations);
+
+      // Calculate dashboard statistics
+      const stats = {
+        activeReservations: myReservations.filter(r => 
+          r.status?.toLowerCase() === 'approved' || r.status?.toLowerCase() === 'pending'
+        ).length,
+        upcomingClasses: todayClasses.length,
+        totalReservations: myReservations.length,
+        pendingReservations: pendingReservations
+      };
+
+      // Update dashboard data
+      setDashboardData({
+        myReservations,
+        todayClasses,
+        availableClassrooms,
+        stats
+      });
+
+      setNotificationCount(notificationCount);
+      setLastUpdateTime(new Date());
+      
+      console.log('✅ Dashboard data updated successfully:', {
+        reservations: myReservations.length,
+        todayClasses: todayClasses.length,
+        pendingReservations,
+        stats
+      });
+
+    } catch (error) {
+      console.error('❌ Error fetching professor dashboard data:', error);
+      setError('Failed to load dashboard data. Please try refreshing the page.');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUser, fetchMyReservations, fetchMyTimetable, fetchAvailableClassrooms]);
+
+  // Initial data fetch and periodic updates
+  useEffect(() => {
+    if (currentUser) {
+      fetchProfessorDashboardData();
+
+      // Set up periodic refresh every 5 minutes
+      const interval = setInterval(() => {
+        fetchProfessorDashboardData();
+      }, 5 * 60 * 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [currentUser, fetchProfessorDashboardData]);
+
+  // Manual refresh function
+  const handleRefreshData = () => {
+    fetchProfessorDashboardData();
   };
 
   // Toggle notifications panel
@@ -197,18 +362,13 @@ const ProfessorDashboard = () => {
     }
   };
 
-  // Save reservations to localStorage when they change
-  useEffect(() => {
-    localStorage.setItem('professorReservations', JSON.stringify(myReservations));
-  }, [myReservations]);
-
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
   const viewReservation = (id) => {
-    const reservation = myReservations.find(r => r.id === id);
+    const reservation = dashboardData.myReservations.find(r => r.id === id);
     if (reservation) {
       alert(`Viewing reservation: ${reservation.classroom} on ${reservation.date} at ${reservation.time} for ${reservation.purpose}`);
     }
@@ -216,8 +376,24 @@ const ProfessorDashboard = () => {
 
   const cancelReservation = (id) => {
     if (window.confirm('Are you sure you want to cancel this reservation?')) {
-      const updatedReservations = myReservations.filter(r => r.id !== id);
-      setMyReservations(updatedReservations);
+      const updatedReservations = dashboardData.myReservations.filter(r => r.id !== id);
+      setDashboardData(prev => ({
+        ...prev,
+        myReservations: updatedReservations,
+        stats: {
+          ...prev.stats,
+          activeReservations: updatedReservations.filter(r => 
+            r.status?.toLowerCase() === 'approved' || r.status?.toLowerCase() === 'pending'
+          ).length,
+          totalReservations: updatedReservations.length,
+          pendingReservations: updatedReservations.filter(r => 
+            r.status?.toLowerCase() === 'pending'
+          ).length
+        }
+      }));
+      
+      // Update localStorage
+      localStorage.setItem('professorReservations', JSON.stringify(updatedReservations));
       alert('Reservation cancelled successfully.');
     }
   };
@@ -227,7 +403,7 @@ const ProfessorDashboard = () => {
     const { date, startTime, endTime, classType, capacity } = formData;
     
     // Filter classrooms based on type and capacity
-    const filteredRooms = availableClassrooms.filter(classroom => {
+    const filteredRooms = dashboardData.availableClassrooms.filter(classroom => {
       return classroom.type === classType && classroom.capacity >= parseInt(capacity);
     });
     
@@ -237,7 +413,7 @@ const ProfessorDashboard = () => {
 
   // Function to make a reservation
   const makeReservation = (classroomId, date, time, purpose) => {
-    const classroom = availableClassrooms.find(c => c.id === classroomId);
+    const classroom = dashboardData.availableClassrooms.find(c => c.id === classroomId);
     if (!classroom) return;
     
     const newReservation = {
@@ -249,7 +425,21 @@ const ProfessorDashboard = () => {
       status: 'Pending'
     };
     
-    setMyReservations([...myReservations, newReservation]);
+    const updatedReservations = [...dashboardData.myReservations, newReservation];
+    setDashboardData(prev => ({
+      ...prev,
+      myReservations: updatedReservations,
+      stats: {
+        ...prev.stats,
+        totalReservations: updatedReservations.length,
+        activeReservations: updatedReservations.filter(r => 
+          r.status?.toLowerCase() === 'approved' || r.status?.toLowerCase() === 'pending'
+        ).length
+      }
+    }));
+    
+    // Update localStorage
+    localStorage.setItem('professorReservations', JSON.stringify(updatedReservations));
     setShowModal(false);
   };
 
@@ -258,38 +448,77 @@ const ProfessorDashboard = () => {
     <div className="main-content">
       {/* Welcome Section */}
       <div className="welcome-section">
-        <h2>Welcome, {currentUser?.firstName || 'Professor'}!</h2>
-        <p>Manage your classroom reservations and teaching schedule here.</p>
+        <div className="welcome-content">
+          <h2>Welcome, {currentUser?.firstName || 'Professor'}!</h2>
+          <p>Manage your classroom reservations and teaching schedule here.</p>
+          {lastUpdateTime && (
+            <small className="last-update">
+              Last updated: {lastUpdateTime.toLocaleTimeString()}
+            </small>
+          )}
+          {/* Profile loader status indicator */}
+          {!isProfileLoaded && (
+            <div className="profile-loading-indicator">
+              <small>Loading complete profile data...</small>
+            </div>
+          )}
+        </div>
+        <div className="welcome-actions">
+          <button 
+            className="btn-secondary"
+            onClick={handleRefreshData}
+            disabled={loading}
+            title="Refresh dashboard data"
+          >
+            <i className={`fas fa-sync-alt ${loading ? 'fa-spin' : ''}`}></i>
+            {loading ? ' Updating...' : ' Refresh'}
+          </button>
+        </div>
       </div>
+
+      {error && (
+        <div className="alert alert-error">
+          <i className="fas fa-exclamation-triangle"></i>
+          {error}
+          <button className="btn-small" onClick={handleRefreshData}>
+            Try Again
+          </button>
+        </div>
+      )}
       
       {/* Stats Cards */}
       <div className="stats-container">
         <StatCard
           icon="fas fa-calendar-check"
           title="Active Reservations"
-          value={myReservations.filter(r => r.status === 'Approved').length}
+          value={dashboardData.stats.activeReservations}
           color="blue"
+          description={`${dashboardData.stats.totalReservations} total reservations`}
         />
         <StatCard
           icon="fas fa-calendar-day"
-          title="Upcoming Classes"
-          value={todayClasses.length}
+          title="Today's Classes"
+          value={dashboardData.stats.upcomingClasses}
           color="green"
+          description="Classes scheduled for today"
+        />
+        <StatCard
+          icon="fas fa-clock"
+          title="Pending Reservations"
+          value={dashboardData.stats.pendingReservations}
+          color="yellow"
+          description="Awaiting approval"
         />
         <StatCard
           icon="fas fa-history"
           title="Total Reservations"
-          value={myReservations.length}
-          color="yellow"
-        />
-        <StatCard
-          icon="fas fa-users"
-          title="Students Enrolled"
-          value="87"
+          value={dashboardData.stats.totalReservations}
           color="red"
+          description="All-time reservation requests"
         />
       </div>
       
+      {/* Rest of the dashboard content remains the same... */}
       {/* Upcoming Reservations Section */}
       <div className="section">
         <div className="section-header">
@@ -299,51 +528,61 @@ const ProfessorDashboard = () => {
           </Link>
         </div>
         
-        <div className="data-table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Classroom</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Purpose</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {myReservations.map(reservation => (
-                <tr key={reservation.id}>
-                  <td>{reservation.classroom}</td>
-                  <td>{reservation.date}</td>
-                  <td>{reservation.time}</td>
-                  <td>{reservation.purpose}</td>
-                  <td>
-                    <span className={`status-badge status-${reservation.status.toLowerCase()}`}>
-                      {reservation.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="table-actions">
-                      <button 
-                        className="btn-table btn-view"
-                        onClick={() => viewReservation(reservation.id)}
-                      >
-                        View
-                      </button>
-                      <button 
-                        className="btn-table btn-delete"
-                        onClick={() => cancelReservation(reservation.id)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </td>
+        {dashboardData.myReservations.length === 0 ? (
+          <div className="empty-state">
+            <i className="fas fa-calendar-times"></i>
+            <p>No reservations found</p>
+            <Link to="/professor/reserve" className="btn-primary">
+              Make a Reservation
+            </Link>
+          </div>
+        ) : (
+          <div className="data-table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Classroom</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Purpose</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {dashboardData.myReservations.slice(0, 5).map(reservation => (
+                  <tr key={reservation.id}>
+                    <td>{reservation.classroom}</td>
+                    <td>{reservation.date}</td>
+                    <td>{reservation.time}</td>
+                    <td>{reservation.purpose}</td>
+                    <td>
+                      <span className={`status-badge status-${reservation.status.toLowerCase()}`}>
+                        {reservation.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="table-actions">
+                        <button 
+                          className="btn-table btn-view"
+                          onClick={() => viewReservation(reservation.id)}
+                        >
+                          View
+                        </button>
+                        <button 
+                          className="btn-table btn-delete"
+                          onClick={() => cancelReservation(reservation.id)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
       
       {/* Today's Schedule Section */}
@@ -360,35 +599,48 @@ const ProfessorDashboard = () => {
           </div>
         </div>
         
-        <div className="today-classes">
-          {todayClasses.map(classItem => (
-            <div className="class-card" key={classItem.id}>
-              <div className="class-time">{classItem.time}</div>
-              <div className="class-details">
-                <h3 className="class-name">{classItem.name}</h3>
-                <p className="class-location">
-                  <i className="fas fa-map-marker-alt"></i> {classItem.location}
-                </p>
-                {classItem.students && (
-                  <p className="class-info">
-                    <i className="fas fa-users"></i> {classItem.students} Students
+        {dashboardData.todayClasses.length === 0 ? (
+          <div className="empty-state">
+            <i className="fas fa-calendar"></i>
+            <p>No classes scheduled for today</p>
+            <Link to="/professor/timetable" className="btn-primary">
+              Manage Timetable
+            </Link>
+          </div>
+        ) : (
+          <div className="today-classes">
+            {dashboardData.todayClasses.map(classItem => (
+              <div className="class-card" key={classItem.id}>
+                <div className="class-time">{classItem.time}</div>
+                <div className="class-details">
+                  <h3 className="class-name">{classItem.name}</h3>
+                  <p className="class-location">
+                    <i className="fas fa-map-marker-alt"></i> {classItem.location}
                   </p>
-                )}
-                {classItem.info && (
-                  <p className="class-info">
-                    <i className="fas fa-clipboard-list"></i> {classItem.info}
+                  {classItem.students && (
+                    <p className="class-info">
+                      <i className="fas fa-users"></i> {classItem.students} Students
+                    </p>
+                  )}
+                  {classItem.info && (
+                    <p className="class-info">
+                      <i className="fas fa-clipboard-list"></i> {classItem.info}
+                    </p>
+                  )}
+                  <p className="class-type">
+                    <i className="fas fa-tag"></i> {classItem.type}
                   </p>
-                )}
+                </div>
+                <div className="class-actions">
+                  <button className="btn-small">View Details</button>
+                  {classItem.students && (
+                    <button className="btn-small">Class Materials</button>
+                  )}
+                </div>
               </div>
-              <div className="class-actions">
-                <button className="btn-small">View Details</button>
-                {classItem.students && (
-                  <button className="btn-small">Class Materials</button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
       
       {/* Reserve Classroom Section */}
@@ -458,10 +710,9 @@ const ProfessorDashboard = () => {
           <Route path="/" element={<DashboardHome />} />
           <Route path="/reserve" element={<ClassroomReservation onSubmit={handleReservationSearch} fullPage={true} />} />
           <Route path="/reservations" element={<MyReservations notificationCount={notificationCount} />} />
-          <Route path="/schedule" element={<ClassSchedule classes={todayClasses} />} />
+          <Route path="/schedule" element={<ClassSchedule classes={dashboardData.todayClasses} />} />
           <Route path="/timetable" element={<ProfessorTimetable />} />
           <Route path="/profile" element={<Profile />} /> 
-          {/* Add more routes as needed */}
         </Routes>
       </div>
       
@@ -482,7 +733,7 @@ const ProfessorDashboard = () => {
               <div className="classroom-item" key={classroom.id}>
                 <h3>{classroom.roomNumber} ({classroom.type})</h3>
                 <p><strong>Capacity:</strong> {classroom.capacity} students</p>
-                <p><strong>Features:</strong> {classroom.features.join(', ')}</p>
+                <p><strong>Features:</strong> {classroom.features?.join(', ') || 'None listed'}</p>
                 <button 
                   className="btn-primary reserve-btn"
                   onClick={() => makeReservation(

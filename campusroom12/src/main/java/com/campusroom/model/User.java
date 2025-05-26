@@ -51,6 +51,9 @@ public class User {
     
     @Column(length = 20)
     private String phone;
+    
+    @Column(length = 500)
+    private String profileImageUrl;
 
     @Column(nullable = true)
     private String resetToken;
@@ -65,15 +68,22 @@ public class User {
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "updated_at")
     private Date updatedAt;
+    
+    // Add these fields to your User.java model
+private String verificationCode;
+private Date verificationCodeExpiry;
 
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "last_login")
     private Date lastLogin;
     
-    // New fields for student timetable data
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "user_id")
     private List<TimetableEntry> timetableEntries = new ArrayList<>();
+
+    public enum Role {
+        ADMIN, PROFESSOR, STUDENT
+    }
 
     @PrePersist
     protected void onCreate() {
@@ -84,14 +94,6 @@ public class User {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = new Date();
-    }
-
-    public void setProfileImageUrl(String imageUrl) {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
-
-    public enum Role {
-        ADMIN, PROFESSOR, STUDENT
     }
 
     // Getters
@@ -119,6 +121,22 @@ public class User {
         return role;
     }
 
+    public String getStatus() {
+        return status;
+    }
+    
+    public String getDepartment() {
+        return department;
+    }
+    
+    public String getPhone() {
+        return phone;
+    }
+    
+    public String getProfileImageUrl() {
+        return profileImageUrl;
+    }
+
     public String getResetToken() {
         return resetToken;
     }
@@ -135,24 +153,12 @@ public class User {
         return updatedAt;
     }
 
-    public String getStatus() {
-        return status;
-    }
-
     public Date getLastLogin() {
         return lastLogin;
     }
     
     public List<TimetableEntry> getTimetableEntries() {
         return timetableEntries;
-    }
-    
-    public String getDepartment() {
-        return department;
-    }
-    
-    public String getPhone() {
-        return phone;
     }
 
     // Setters
@@ -180,6 +186,22 @@ public class User {
         this.role = role;
     }
 
+    public void setStatus(String status) {
+        this.status = status;
+    }
+    
+    public void setDepartment(String department) {
+        this.department = department;
+    }
+    
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+    
+    public void setProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
+
     public void setResetToken(String resetToken) {
         this.resetToken = resetToken;
     }
@@ -196,10 +218,6 @@ public class User {
         this.updatedAt = updatedAt;
     }
 
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
     public void setLastLogin(Date lastLogin) {
         this.lastLogin = lastLogin;
     }
@@ -208,21 +226,28 @@ public class User {
         this.timetableEntries = timetableEntries;
     }
     
-    public void setDepartment(String department) {
-        this.department = department;
-    }
-    
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-    
-    // Helper method to add a timetable entry
+    // Helper methods
     public void addTimetableEntry(TimetableEntry entry) {
         timetableEntries.add(entry);
     }
     
-    // Helper method to remove a timetable entry
     public void removeTimetableEntry(TimetableEntry entry) {
         timetableEntries.remove(entry);
     }
+    // Add getters and setters
+public String getVerificationCode() {
+    return verificationCode;
+}
+
+public void setVerificationCode(String verificationCode) {
+    this.verificationCode = verificationCode;
+}
+
+public Date getVerificationCodeExpiry() {
+    return verificationCodeExpiry;
+}
+
+public void setVerificationCodeExpiry(Date verificationCodeExpiry) {
+    this.verificationCodeExpiry = verificationCodeExpiry;
+}
 }

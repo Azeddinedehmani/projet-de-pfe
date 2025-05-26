@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { API } from '../../api';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import useAuth from '../../hooks/useAuth';
+import { API } from '../../api';
+import LocalImage from './LocalImage';
+import LocalImageUploader from './LocalImageUploader';
+import LocalImageService from '../../utils/LocalImageService';
 import '../../styles/profile-styles.css';
 
 const Profile = () => {
@@ -19,7 +22,8 @@ const Profile = () => {
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
-    profileImage: null
+    profileImageUrl: '',
+    selectedFileName: ''
   });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -29,9 +33,7 @@ const Profile = () => {
   
   // Helper function for phone validation
   const validatePhoneNumber = (phone) => {
-    // Basic validation - allows empty or various international formats
     if (!phone || phone.trim() === '') return true;
-    // Permissive regex for international numbers
     const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]*$/;
     return phoneRegex.test(phone);
   };
@@ -45,6 +47,44 @@ const Profile = () => {
     const hasNoWhitespace = !/\s/.test(password);
     
     return hasDigit && hasLowercase && hasUppercase && hasSpecial && hasNoWhitespace;
+  };
+  
+  // Debug function to help troubleshoot image issues
+  const debugImageInfo = () => {
+    console.log('=== Profile Image Debug Info ===');
+    console.log('Current User ID:', currentUser?.id);
+    console.log('formData.profileImageUrl:', formData.profileImageUrl);
+    console.log('currentUser.profileImageUrl:', currentUser?.profileImageUrl);
+    
+    if (formData.profileImageUrl && formData.profileImageUrl.startsWith('local-storage-user://')) {
+      const parts = formData.profileImageUrl.replace('local-storage-user://', '').split('/');
+      console.log('Image URL parts:', parts);
+      if (parts.length >= 2) {
+        const userId = parts[0];
+        const fileName = parts.slice(1).join('/');
+        console.log('User ID:', userId, 'File Name:', fileName);
+        
+        // Check localStorage directly
+        try {
+          const userImages = JSON.parse(localStorage.getItem(`userImages_${userId}`) || '{}');
+          console.log('All user images in localStorage:', Object.keys(userImages));
+          console.log('Looking for specific image:', fileName);
+          console.log('Image found:', !!userImages[fileName]);
+          if (userImages[fileName]) {
+            console.log('Image data length:', userImages[fileName].dataUrl?.length);
+          }
+        } catch (e) {
+          console.error('Error checking localStorage:', e);
+        }
+      }
+    }
+    
+    // Check all localStorage keys
+    console.log('All localStorage keys:', Object.keys(localStorage));
+    const userImageKeys = Object.keys(localStorage).filter(key => key.startsWith('userImages_'));
+    console.log('User image keys:', userImageKeys);
+    
+    console.log('=== End Debug Info ===');
   };
   
   // Check for valid token on component mount
@@ -89,10 +129,8 @@ const Profile = () => {
 
   // Fetch profile data when component mounts or currentUser changes
   useEffect(() => {
-    // Track if component is mounted to prevent state updates after unmount
     let isMounted = true;
     
-    // Only fetch once to prevent infinite loop
     if (profileFetched || !currentUser) return;
     
     const fetchProfileData = async () => {
@@ -108,7 +146,8 @@ const Profile = () => {
           lastName: currentUser.lastName || '',
           email: currentUser.email || '',
           department: currentUser.department || '',
-          phone: currentUser.phone || ''
+          phone: currentUser.phone || '',
+          profileImageUrl: currentUser.profileImageUrl || ''
         }));
         
         // Then fetch updated data from API
@@ -130,7 +169,8 @@ const Profile = () => {
               lastName: profileData.lastName || prevState.lastName,
               email: profileData.email || prevState.email,
               department: profileData.department || prevState.department,
-              phone: profileData.phone || prevState.phone
+              phone: profileData.phone || prevState.phone,
+              profileImageUrl: profileData.profileImageUrl || prevState.profileImageUrl
             }));
             
             // Update context with fresh data
@@ -141,6 +181,7 @@ const Profile = () => {
                 lastName: profileData.lastName || currentUser.lastName,
                 department: profileData.department || currentUser.department,
                 phone: profileData.phone || currentUser.phone,
+                profileImageUrl: profileData.profileImageUrl || currentUser.profileImageUrl,
                 lastUpdated: new Date().toISOString()
               };
               
@@ -176,14 +217,18 @@ const Profile = () => {
     
     fetchProfileData();
     
-    // Cleanup function
     return () => {
       isMounted = false;
     };
   }, [currentUser, updateCurrentUser, profileFetched]);
   
-  // Handle authentication errors
+  // Handle authentication errors and cleanup
   const handleAuthError = (message) => {
+    // Clear user-specific profile images before logging out
+    if (currentUser?.id) {
+      LocalImageService.clearUserImages(currentUser.id);
+    }
+    
     // Clear local storage
     logout();
     
@@ -205,16 +250,19 @@ const Profile = () => {
     });
   };
   
-  // Handle file upload
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      console.log('File selected:', file.name, file.type, file.size);
-      setFormData({
-        ...formData,
-        profileImage: file
-      });
-    }
+  // Handle image selection from LocalImageUploader
+  const handleImageSelect = (e) => {
+    const { name, value } = e.target;
+    console.log('Profile: Image selected via LocalImageUploader:', name, value);
+    
+    setFormData(prevFormData => ({
+      ...prevFormData,
+      [name]: value,
+      selectedFileName: value ? 'Image selected' : ''
+    }));
+    
+    // Clear any previous errors
+    setError('');
   };
   
   // Toggle edit mode
@@ -232,7 +280,8 @@ const Profile = () => {
           currentPassword: '',
           newPassword: '',
           confirmPassword: '',
-          profileImage: null
+          profileImageUrl: currentUser.profileImageUrl || '',
+          selectedFileName: ''
         });
       }
       setShowPasswordSection(false);
@@ -242,72 +291,18 @@ const Profile = () => {
     setIsEditing(!isEditing);
   };
   
-  // Update profile function with enhanced security and file upload
+  // Update profile function - only sends URL to backend, not the file
   const updateProfile = async (profileData) => {
     try {
-      // Check if there's a profile image to upload
-      if (profileData.profileImage) {
-        console.log('Profile update includes image upload');
-        
-        // Create FormData for file upload
-        const formData = new FormData();
-        formData.append('id', profileData.id || currentUser.id);
-        formData.append('firstName', profileData.firstName);
-        formData.append('lastName', profileData.lastName);
-        formData.append('email', profileData.email || currentUser.email);
-        
-        if (profileData.department) {
-          formData.append('department', profileData.department);
-        }
-        
-        if (profileData.phone) {
-          formData.append('phone', profileData.phone);
-        }
-        
-        // Add the profile image
-        formData.append('profileImage', profileData.profileImage);
-        
-        // First try the multipart endpoint if it exists
-        try {
-          // Check if the fileAPI exists in your API client
-          if (API.fileAPI && API.fileAPI.uploadProfileWithImage) {
-            const response = await API.fileAPI.uploadProfileWithImage(formData);
-            
-            if (response.data && response.data.success !== false) {
-              // Update context with profile image URL if returned
-              const updatedUser = {
-                ...currentUser,
-                firstName: profileData.firstName,
-                lastName: profileData.lastName,
-                department: profileData.department,
-                phone: profileData.phone,
-                profileImageUrl: response.data.profileImageUrl || currentUser.profileImageUrl,
-                lastUpdated: new Date().toISOString()
-              };
-              
-              updateCurrentUser(updatedUser);
-              
-              return { success: true, message: 'Profile with image updated successfully' };
-            }
-          } else {
-            console.warn('File upload API not configured, falling back to regular update');
-            // Fall back to regular update without image
-          }
-        } catch (uploadErr) {
-          console.error('Error uploading profile image:', uploadErr);
-          // Fall back to regular update without image
-          console.warn('Image upload failed, continuing with profile update only');
-        }
-      }
-      
-      // Regular profile update (no image or fallback)
+      // Create the data object to send to backend - INCLUDING the image URL
       const data = {
         id: profileData.id || currentUser.id,
         firstName: profileData.firstName,
         lastName: profileData.lastName,
         email: profileData.email || currentUser.email,
         department: profileData.department,
-        phone: profileData.phone
+        phone: profileData.phone,
+        profileImageUrl: profileData.profileImageUrl // Send the local-storage URL
       };
       
       console.log('Sending profile update with data:', data);
@@ -323,6 +318,7 @@ const Profile = () => {
           lastName: profileData.lastName,
           department: profileData.department,
           phone: profileData.phone,
+          profileImageUrl: profileData.profileImageUrl,
           lastUpdated: new Date().toISOString()
         };
         
@@ -492,7 +488,7 @@ const Profile = () => {
       formData.lastName !== currentUser.lastName ||
       formData.department !== currentUser.department ||
       formData.phone !== currentUser.phone ||
-      formData.profileImage !== null;
+      formData.profileImageUrl !== currentUser.profileImageUrl;
     
     const hasPasswordChanges = formData.newPassword && formData.currentPassword;
     
@@ -515,7 +511,7 @@ const Profile = () => {
           email: currentUser.email,
           department: formData.department,
           phone: formData.phone,
-          profileImage: formData.profileImage ? 'File selected' : 'No file'
+          profileImageUrl: formData.profileImageUrl
         });
         
         const profileResult = await updateProfile({
@@ -525,7 +521,7 @@ const Profile = () => {
           email: currentUser.email,
           department: formData.department,
           phone: formData.phone,
-          profileImage: formData.profileImage
+          profileImageUrl: formData.profileImageUrl
         });
         
         profileUpdateSuccess = profileResult.success;
@@ -578,13 +574,13 @@ const Profile = () => {
         setIsEditing(false);
         setShowPasswordSection(false);
         
-        // Reset password fields and profile image
+        // Reset password fields and selected file name
         setFormData(prev => ({
           ...prev,
           currentPassword: '',
           newPassword: '',
           confirmPassword: '',
-          profileImage: null
+          selectedFileName: ''
         }));
       } else {
         // Determine which error message to show
@@ -642,6 +638,9 @@ const Profile = () => {
     );
   };
   
+  // Call debug function to troubleshoot image issues
+  debugImageInfo();
+  
   if (loading && !formData.firstName) {
     return (
       <div className="main-content">
@@ -687,24 +686,22 @@ const Profile = () => {
         {error && (
           <div className="error-alert">
             <i className="fas fa-exclamation-circle"></i> {error}
-            {/* If error contains structured validation errors */}
             {typeof error === 'object' && renderErrorList(error)}
           </div>
         )}
         
         <div className="profile-container">
-          <div className="profile-background"></div>
-          
           {!isEditing ? (
             <>
               <div className="profile-header with-background">
                 <div className="profile-avatar-wrapper">
                   <div className="profile-avatar">
-                    {/* Show user profile image if available */}
-                    {currentUser?.profileImageUrl ? (
-                      <img 
-                        src={currentUser.profileImageUrl} 
+                    {formData.profileImageUrl ? (
+                      <LocalImage 
+                        src={formData.profileImageUrl} 
                         alt={`${formData.firstName} ${formData.lastName}`} 
+                        fallbackSrc="/images/default-profile.jpg"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     ) : (
                       getInitials()
@@ -927,200 +924,203 @@ const Profile = () => {
             </>
           ) : (
             <form className="profile-form" onSubmit={handleSubmit}>
-            <div className="profile-header">
-              <div className="profile-avatar-wrapper">
-                <div className="profile-avatar">
-                  {formData.profileImage ? (
-                    <img 
-                      src={URL.createObjectURL(formData.profileImage)} 
-                      alt={`${formData.firstName} ${formData.lastName}`} 
-                    />
-                  ) : currentUser?.profileImageUrl ? (
-                    <img 
-                      src={currentUser.profileImageUrl} 
-                      alt={`${formData.firstName} ${formData.lastName}`} 
-                    />
-                  ) : (
-                    getInitials()
-                  )}
+              {/* Enhanced Upload Section */}
+              <div className="profile-avatar-section">
+                <div className="profile-avatar-wrapper">
+                  <div className="profile-avatar">
+                    {formData.profileImageUrl ? (
+                      <LocalImage 
+                        src={formData.profileImageUrl}
+                        alt={`${formData.firstName} ${formData.lastName}`}
+                        fallbackSrc="/images/default-profile.jpg"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      getInitials()
+                    )}
+                  </div>
                 </div>
-                <label className="profile-avatar-upload" title="Upload profile photo">
-                  <i className="fas fa-camera"></i>
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    style={{ display: 'none' }}
-                    onChange={handleFileChange}
-                  />
-                </label>
-              </div>
-            </div>
-            
-            <h3 className="form-section-title">
-              <i className="fas fa-user"></i> Personal Information
-            </h3>
-            
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label" htmlFor="firstName">First Name</label>
-                <input 
-                  type="text" 
-                  id="firstName" 
-                  name="firstName"
-                  className="form-input"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  required 
-                  disabled={loading}
-                />
+                
+                <div className="profile-upload-content">
+                  <h3 className="profile-upload-title">Upload New Image</h3>
+                  <p className="profile-upload-subtitle">Upload an image from your computer - it will be stored in your browser.</p>
+                  
+                  {/* Use LocalImageUploader component */}
+                  <LocalImageUploader onImageSelect={handleImageSelect} />
+                  
+                  <p className="profile-upload-hint">
+                    Images are stored locally in your browser, not on the server.
+                  </p>
+                </div>
               </div>
               
-              <div className="form-group">
-                <label className="form-label" htmlFor="lastName">Last Name</label>
-                <input 
-                  type="text" 
-                  id="lastName" 
-                  name="lastName"
-                  className="form-input"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  required 
-                  disabled={loading}
-                />
-              </div>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label" htmlFor="email">Email Address</label>
-              <input 
-                type="email" 
-                id="email" 
-                name="email"
-                className="form-input"
-                value={formData.email}
-                readOnly
-                disabled
-              />
-              <span className="form-hint">Email address cannot be changed</span>
-            </div>
-            
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label" htmlFor="department">Department</label>
-                <input 
-                  type="text" 
-                  id="department" 
-                  name="department"
-                  className="form-input"
-                  value={formData.department}
-                  onChange={handleChange}
-                  disabled={loading}
-                />
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label" htmlFor="phone">Phone Number</label>
-                <input 
-                  type="tel" 
-                  id="phone" 
-                  name="phone"
-                  className="form-input"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  disabled={loading}
-                />
-              </div>
-            </div>
-            
-            {!showPasswordSection ? (
-              <div className="form-group">
-                <button 
-                  type="button" 
-                  className="btn-secondary"
-                  onClick={() => setShowPasswordSection(true)}
-                  disabled={loading}
-                >
-                  <i className="fas fa-key"></i> Change Password
-                </button>
-              </div>
-            ) : (
-              <>
+              <div className="profile-form-section">
                 <h3 className="form-section-title">
-                  <i className="fas fa-lock"></i> Change Password
+                  <i className="fas fa-user"></i> Personal Information
                 </h3>
                 
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="firstName">First Name</label>
+                    <input 
+                      type="text" 
+                      id="firstName" 
+                      name="firstName"
+                      className="form-input"
+                      value={formData.firstName}
+                      onChange={handleChange}
+                      required 
+                      disabled={loading}
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="lastName">Last Name</label>
+                    <input 
+                      type="text" 
+                      id="lastName" 
+                      name="lastName"
+                      className="form-input"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      required 
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                
                 <div className="form-group">
-                  <label className="form-label" htmlFor="currentPassword">Current Password</label>
+                  <label className="form-label" htmlFor="email">Email Address</label>
                   <input 
-                    type="password" 
-                    id="currentPassword" 
-                    name="currentPassword"
+                    type="email" 
+                    id="email" 
+                    name="email"
                     className="form-input"
-                    value={formData.currentPassword}
-                    onChange={handleChange}
-                    disabled={loading}
+                    value={formData.email}
+                    readOnly
+                    disabled
                   />
+                  <span className="form-hint">Email address cannot be changed</span>
                 </div>
                 
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label" htmlFor="newPassword">New Password</label>
+                    <label className="form-label" htmlFor="department">Department</label>
                     <input 
-                      type="password" 
-                      id="newPassword" 
-                      name="newPassword"
+                      type="text" 
+                      id="department" 
+                      name="department"
                       className="form-input"
-                      value={formData.newPassword}
+                      value={formData.department}
                       onChange={handleChange}
                       disabled={loading}
                     />
-                    <span className="form-hint">
-                      Password must be at least 8 characters and include at least one digit, one lowercase letter, 
-                      one uppercase letter, one special character, and no spaces
-                    </span>
                   </div>
                   
                   <div className="form-group">
-                    <label className="form-label" htmlFor="confirmPassword">Confirm New Password</label>
+                    <label className="form-label" htmlFor="phone">Phone Number</label>
                     <input 
-                      type="password" 
-                      id="confirmPassword" 
-                      name="confirmPassword"
+                      type="tel" 
+                      id="phone" 
+                      name="phone"
                       className="form-input"
-                      value={formData.confirmPassword}
+                      value={formData.phone}
                       onChange={handleChange}
                       disabled={loading}
                     />
                   </div>
                 </div>
                 
-                <div className="form-group">
-                  <button 
-                    type="button" 
-                    className="btn-secondary"
-                    onClick={() => setShowPasswordSection(false)}
-                    disabled={loading}
-                  >
-                    Cancel Password Change
+                {!showPasswordSection ? (
+                  <div className="form-group">
+                    <button 
+                      type="button" 
+                      className="btn-secondary"
+                      onClick={() => setShowPasswordSection(true)}
+                      disabled={loading}
+                    >
+                      <i className="fas fa-key"></i> Change Password
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <h3 className="form-section-title">
+                      <i className="fas fa-lock"></i> Change Password
+                    </h3>
+                    
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="currentPassword">Current Password</label>
+                      <input 
+                        type="password" 
+                        id="currentPassword" 
+                        name="currentPassword"
+                        className="form-input"
+                        value={formData.currentPassword}
+                        onChange={handleChange}
+                        disabled={loading}
+                      />
+                    </div>
+                    
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label className="form-label" htmlFor="newPassword">New Password</label>
+                        <input 
+                          type="password" 
+                          id="newPassword" 
+                          name="newPassword"
+                          className="form-input"
+                          value={formData.newPassword}
+                          onChange={handleChange}
+                          disabled={loading}
+                        />
+                        <span className="form-hint">
+                          Password must be at least 8 characters and include at least one digit, one lowercase letter, 
+                          one uppercase letter, one special character, and no spaces
+                        </span>
+                      </div>
+                      
+                      <div className="form-group">
+                        <label className="form-label" htmlFor="confirmPassword">Confirm New Password</label>
+                        <input 
+                          type="password" 
+                          id="confirmPassword" 
+                          name="confirmPassword"
+                          className="form-input"
+                          value={formData.confirmPassword}
+                          onChange={handleChange}
+                          disabled={loading}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="form-group">
+                      <button 
+                        type="button" 
+                        className="btn-secondary"
+                        onClick={() => setShowPasswordSection(false)}
+                        disabled={loading}
+                      >
+                        Cancel Password Change
+                      </button>
+                    </div>
+                  </>
+                )}
+                
+                <div className="form-actions">
+                  <button type="button" className="btn-secondary" onClick={toggleEdit} disabled={loading}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-primary" disabled={loading}>
+                    {loading ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
-              </>
-            )}
-            
-            <div className="form-actions">
-              <button type="button" className="btn-secondary" onClick={toggleEdit} disabled={loading}>
-                Cancel
-              </button>
-              <button type="submit" className="btn-primary" disabled={loading}>
-                {loading ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </form>
-        )}
+              </div>
+            </form>
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default Profile;

@@ -7,6 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+// Add these imports to AuthController.java
+import com.campusroom.dto.VerifyCodeRequest;
+import com.campusroom.dto.ResetPasswordWithCodeRequest;
+
 
 @RestController
 @RequestMapping("/auth")
@@ -48,4 +52,17 @@ public class AuthController {
         AuthResponse response = authService.resetPasswordForAllUsers();
         return ResponseEntity.ok(response);
     }
+    
+    
+@PostMapping("/verify-code")
+public ResponseEntity<AuthResponse> verifyCode(@Valid @RequestBody VerifyCodeRequest request) {
+    AuthResponse response = authService.verifyCode(request);
+    return ResponseEntity.ok(response);
+}
+
+@PostMapping("/reset-password-with-code")
+public ResponseEntity<AuthResponse> resetPasswordWithCode(@Valid @RequestBody ResetPasswordWithCodeRequest request) {
+    AuthResponse response = authService.resetPasswordWithCode(request);
+    return ResponseEntity.ok(response);
+}
 }

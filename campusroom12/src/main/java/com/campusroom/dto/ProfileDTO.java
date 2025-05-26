@@ -34,6 +34,10 @@ public class ProfileDTO {
             message = "Phone number format is invalid")
     private String phone;
     
+    // Add profile image URL field
+    @Size(max = 500, message = "Profile image URL must not exceed 500 characters")
+    private String profileImageUrl;
+    
     private Date lastLogin;
     
     // Constructors
@@ -41,7 +45,7 @@ public class ProfileDTO {
     }
     
     public ProfileDTO(Long id, String firstName, String lastName, String email, 
-                     String role, String department, String phone, Date lastLogin) {
+                     String role, String department, String phone, String profileImageUrl, Date lastLogin) {
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -49,6 +53,7 @@ public class ProfileDTO {
         this.role = role;
         this.department = department;
         this.phone = phone;
+        this.profileImageUrl = profileImageUrl;
         this.lastLogin = lastLogin;
     }
     
@@ -66,6 +71,7 @@ public class ProfileDTO {
         private String role;
         private String department;
         private String phone;
+        private String profileImageUrl;
         private Date lastLogin;
         
         public Builder id(Long id) {
@@ -103,13 +109,18 @@ public class ProfileDTO {
             return this;
         }
         
+        public Builder profileImageUrl(String profileImageUrl) {
+            this.profileImageUrl = profileImageUrl;
+            return this;
+        }
+        
         public Builder lastLogin(Date lastLogin) {
             this.lastLogin = lastLogin;
             return this;
         }
         
         public ProfileDTO build() {
-            return new ProfileDTO(id, firstName, lastName, email, role, department, phone, lastLogin);
+            return new ProfileDTO(id, firstName, lastName, email, role, department, phone, profileImageUrl, lastLogin);
         }
     }
     
@@ -170,6 +181,14 @@ public class ProfileDTO {
         this.phone = phone;
     }
     
+    public String getProfileImageUrl() {
+        return profileImageUrl;
+    }
+    
+    public void setProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
+    
     public Date getLastLogin() {
         return lastLogin;
     }
@@ -188,6 +207,7 @@ public class ProfileDTO {
                 ", role='" + role + '\'' +
                 ", department='" + department + '\'' +
                 ", phone='" + phone + '\'' +
+                ", profileImageUrl='" + profileImageUrl + '\'' +
                 '}';
     }
 }

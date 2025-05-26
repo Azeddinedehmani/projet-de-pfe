@@ -21,6 +21,7 @@ import java.util.*;
 /**
  * Centralized service for checking classroom availability
  * This service prevents double-booking between timetable entries and ad-hoc reservations
+ * ENHANCED VERSION with improved conflict detection and detailed reporting
  */
 @Service
 public class ClassroomAvailabilityService {
@@ -67,6 +68,7 @@ public class ClassroomAvailabilityService {
             }
             
             // If we passed both checks, the classroom is available
+            logger.info("✅ Classroom {} is available on {} at {}-{}", classroomId, date, startTime, endTime);
             return true;
         } catch (Exception e) {
             logger.error("Error checking classroom availability: {}", e.getMessage(), e);
@@ -87,6 +89,8 @@ public class ClassroomAvailabilityService {
         int requestStartMinutes = convertTimeToMinutes(startTime);
         int requestEndMinutes = convertTimeToMinutes(endTime);
         
+        logger.debug("Checking {} existing reservations for classroom {}", existingReservations.size(), classroomId);
+        
         // Check for any overlap with existing reservations
         for (Reservation reservation : existingReservations) {
             int reservationStartMinutes = convertTimeToMinutes(reservation.getStartTime());
@@ -95,6 +99,13 @@ public class ClassroomAvailabilityService {
             // If there's an overlap, the classroom is not available
             if (hasTimeOverlap(requestStartMinutes, requestEndMinutes, 
                              reservationStartMinutes, reservationEndMinutes)) {
+                logger.warn("❌ RESERVATION CONFLICT: Classroom {} already reserved by {} {} from {} to {} ({})", 
+                          classroomId, 
+                          reservation.getUser().getFirstName(), 
+                          reservation.getUser().getLastName(),
+                          reservation.getStartTime(), 
+                          reservation.getEndTime(),
+                          reservation.getStatus());
                 return false;
             }
         }
@@ -103,47 +114,112 @@ public class ClassroomAvailabilityService {
     }
     
     /**
-     * Check for conflicts with regular timetable entries
+     * IMPROVED: Check for conflicts with regular timetable entries
      */
     private boolean checkTimetableAvailability(String classroomId, Date date, String startTime, String endTime) {
-        // Get the day of week from the date (e.g., "Monday", "Tuesday", etc.)
+        // Get the day of week from the date
         String dayOfWeek = getDayOfWeekFromDate(date);
-        
-        // Refresh the cache if needed
-        if (System.currentTimeMillis() - cacheLastRefreshed > CACHE_TIMEOUT) {
-            refreshTimetableCache();
-        }
         
         // Convert request times to minutes for easier comparison
         int requestStartMinutes = convertTimeToMinutes(startTime);
         int requestEndMinutes = convertTimeToMinutes(endTime);
         
-        // Get timetable entries for this classroom from cache (or empty list if none)
-        List<TimetableEntry> timetableEntries = classroomTimetableCache.getOrDefault(classroomId, Collections.emptyList());
+        logger.debug("Checking timetable conflicts for classroom {} on {} at {}-{}", 
+                   classroomId, dayOfWeek, startTime, endTime);
         
-        // Check for conflicts with timetable entries
-        for (TimetableEntry entry : timetableEntries) {
-            // Only check entries for the same day of week
-            if (entry.getDay().equalsIgnoreCase(dayOfWeek)) {
-                int entryStartMinutes = convertTimeToMinutes(entry.getStartTime());
-                int entryEndMinutes = convertTimeToMinutes(entry.getEndTime());
-                
-                // If there's an overlap, the classroom is not available
-                if (hasTimeOverlap(requestStartMinutes, requestEndMinutes, 
-                                 entryStartMinutes, entryEndMinutes)) {
-                    return false;
+        // IMPROVED: Get all class groups and check their timetable entries directly
+        // This ensures we catch all conflicts even if cache is stale
+        List<ClassGroup> allClassGroups = classGroupRepository.findAll();
+        
+        for (ClassGroup classGroup : allClassGroups) {
+            if (classGroup.getTimetableEntries() == null) continue;
+            
+            for (TimetableEntry entry : classGroup.getTimetableEntries()) {
+                // ENHANCED: Multiple ways to match classroom location
+                if (isClassroomMatch(classroomId, entry.getLocation()) && 
+                    entry.getDay().equalsIgnoreCase(dayOfWeek)) {
+                    
+                    int entryStartMinutes = convertTimeToMinutes(entry.getStartTime());
+                    int entryEndMinutes = convertTimeToMinutes(entry.getEndTime());
+                    
+                    // Check for time overlap
+                    if (hasTimeOverlap(requestStartMinutes, requestEndMinutes, 
+                                     entryStartMinutes, entryEndMinutes)) {
+                        
+                        logger.warn("❌ CLASS SCHEDULE CONFLICT: Classroom {} is already scheduled for class group '{}' - '{}' on {} from {} to {}", 
+                                  classroomId, classGroup.getName(), entry.getName(), dayOfWeek, entry.getStartTime(), entry.getEndTime());
+                        return false;
+                    }
                 }
             }
         }
         
+        logger.debug("✅ No timetable conflicts found for classroom {}", classroomId);
         return true;
     }
     
     /**
-     * Refresh the timetable cache for better performance
+     * NEW: Improved classroom matching logic
+     * Handles both classroom ID and room number matching
+     */
+    private boolean isClassroomMatch(String classroomId, String timetableLocation) {
+        if (classroomId == null || timetableLocation == null) {
+            return false;
+        }
+        
+        // Clean and normalize both values
+        String cleanClassroomId = classroomId.trim();
+        String cleanLocation = timetableLocation.trim();
+        
+        // Direct ID match
+        if (cleanClassroomId.equals(cleanLocation)) {
+            return true;
+        }
+        
+        // Try to get classroom by ID and match room number
+        try {
+            Optional<Classroom> classroomOpt = classroomRepository.findById(cleanClassroomId);
+            if (classroomOpt.isPresent()) {
+                Classroom classroom = classroomOpt.get();
+                // Match by room number (exact)
+                if (classroom.getRoomNumber().equals(cleanLocation)) {
+                    return true;
+                }
+                // Match case-insensitive room number
+                if (classroom.getRoomNumber().equalsIgnoreCase(cleanLocation)) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Error looking up classroom {}: {}", cleanClassroomId, e.getMessage());
+        }
+        
+        // Try to find classroom by room number and match ID
+        try {
+            List<Classroom> classrooms = classroomRepository.findAll();
+            for (Classroom classroom : classrooms) {
+                if (classroom.getRoomNumber().equals(cleanLocation) && 
+                    classroom.getId().equals(cleanClassroomId)) {
+                    return true;
+                }
+                // Also check case-insensitive
+                if (classroom.getRoomNumber().equalsIgnoreCase(cleanLocation) && 
+                    classroom.getId().equals(cleanClassroomId)) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Error searching classrooms: {}", e.getMessage());
+        }
+        
+        return false;
+    }
+    
+    /**
+     * ENHANCED: Refresh the timetable cache with improved location resolution
      */
     private void refreshTimetableCache() {
-        logger.info("Refreshing timetable cache");
+        logger.info("Refreshing timetable cache for conflict detection");
         
         // Clear the existing cache
         classroomTimetableCache.clear();
@@ -151,18 +227,27 @@ public class ClassroomAvailabilityService {
         // Get all class groups with their timetable entries
         List<ClassGroup> allClassGroups = classGroupRepository.findAll();
         
-        // Populate the cache
+        // Populate the cache with improved location matching
         for (ClassGroup classGroup : allClassGroups) {
             if (classGroup.getTimetableEntries() != null) {
                 for (TimetableEntry entry : classGroup.getTimetableEntries()) {
-                    if (entry.getLocation() != null && !entry.getLocation().isEmpty()) {
-                        String classroomId = entry.getLocation();
+                    if (entry.getLocation() != null && !entry.getLocation().trim().isEmpty()) {
+                        String location = entry.getLocation().trim();
                         
-                        // Add the entry to the cache
-                        if (!classroomTimetableCache.containsKey(classroomId)) {
-                            classroomTimetableCache.put(classroomId, new ArrayList<>());
+                        // Try to resolve location to classroom ID
+                        String classroomId = resolveLocationToClassroomId(location);
+                        
+                        if (classroomId != null) {
+                            // Add the entry to the cache using the resolved classroom ID
+                            if (!classroomTimetableCache.containsKey(classroomId)) {
+                                classroomTimetableCache.put(classroomId, new ArrayList<>());
+                            }
+                            classroomTimetableCache.get(classroomId).add(entry);
+                            
+                            logger.debug("Cached timetable entry for classroom {}: {} on {} at {}-{}", 
+                                       classroomId, classGroup.getName(), entry.getDay(), 
+                                       entry.getStartTime(), entry.getEndTime());
                         }
-                        classroomTimetableCache.get(classroomId).add(entry);
                     }
                 }
             }
@@ -171,7 +256,37 @@ public class ClassroomAvailabilityService {
         // Update the timestamp
         cacheLastRefreshed = System.currentTimeMillis();
         
-        logger.info("Timetable cache refreshed. Cached {} classrooms.", classroomTimetableCache.size());
+        logger.info("Timetable cache refreshed. Cached {} classrooms with {} total entries.", 
+                   classroomTimetableCache.size(), 
+                   classroomTimetableCache.values().stream().mapToInt(List::size).sum());
+    }
+    
+    /**
+     * NEW: Resolve timetable location to actual classroom ID
+     */
+    private String resolveLocationToClassroomId(String location) {
+        try {
+            // First, check if location is already a classroom ID
+            if (classroomRepository.existsById(location)) {
+                return location;
+            }
+            
+            // Try to find by room number
+            List<Classroom> allClassrooms = classroomRepository.findAll();
+            for (Classroom classroom : allClassrooms) {
+                if (classroom.getRoomNumber().equals(location) || 
+                    classroom.getRoomNumber().equalsIgnoreCase(location)) {
+                    return classroom.getId();
+                }
+            }
+            
+            logger.debug("Could not resolve location '{}' to a classroom ID", location);
+            return location; // Return original location if can't resolve
+            
+        } catch (Exception e) {
+            logger.error("Error resolving location '{}' to classroom ID: {}", location, e.getMessage());
+            return location; // Return original location on error
+        }
     }
     
     /**
@@ -212,6 +327,8 @@ public class ClassroomAvailabilityService {
      */
     public boolean isClassroomAvailableForClassGroup(String classroomId, Date date, String startTime, 
                                                   String endTime, Long classGroupId) {
+        logger.debug("Checking classroom availability for class group {} (excluding own entries)", classGroupId);
+        
         // Check ad-hoc reservations
         if (!checkAdHocAvailability(classroomId, date, startTime, endTime)) {
             return false;
@@ -233,14 +350,16 @@ public class ClassroomAvailabilityService {
             if (classGroup.getTimetableEntries() == null) continue;
             
             for (TimetableEntry entry : classGroup.getTimetableEntries()) {
-                if (entry.getLocation() != null && 
-                    entry.getLocation().trim().equals(classroomId) && 
+                // ENHANCED: Use improved classroom matching
+                if (isClassroomMatch(classroomId, entry.getLocation()) && 
                     entry.getDay().equalsIgnoreCase(dayOfWeek)) {
                     
                     int entryStartMinutes = convertTimeToMinutes(entry.getStartTime());
                     int entryEndMinutes = convertTimeToMinutes(entry.getEndTime());
                     
                     if (hasTimeOverlap(requestStartMinutes, requestEndMinutes, entryStartMinutes, entryEndMinutes)) {
+                        logger.warn("Class group conflict: Classroom {} already used by class group '{}' on {} at {}-{}", 
+                                  classroomId, classGroup.getName(), dayOfWeek, entry.getStartTime(), entry.getEndTime());
                         return false;  // Conflict found
                     }
                 }
@@ -251,6 +370,64 @@ public class ClassroomAvailabilityService {
     }
     
     /**
+     * NEW: Get detailed information about conflicts for a classroom at a specific time
+     */
+    public ConflictInfo getDetailedConflictInfo(String classroomId, Date date, String startTime, String endTime) {
+        String dayOfWeek = getDayOfWeekFromDate(date);
+        
+        // Check ad-hoc reservations
+        List<String> reservationConflicts = new ArrayList<>();
+        List<Reservation> existingReservations = reservationRepository.findByClassroomIdAndDateAndStatusIn(
+                classroomId, date, Arrays.asList("APPROVED", "PENDING"));
+        
+        int requestStartMinutes = convertTimeToMinutes(startTime);
+        int requestEndMinutes = convertTimeToMinutes(endTime);
+        
+        for (Reservation reservation : existingReservations) {
+            int reservationStartMinutes = convertTimeToMinutes(reservation.getStartTime());
+            int reservationEndMinutes = convertTimeToMinutes(reservation.getEndTime());
+            
+            if (hasTimeOverlap(requestStartMinutes, requestEndMinutes, 
+                             reservationStartMinutes, reservationEndMinutes)) {
+                reservationConflicts.add(String.format("Reservation by %s %s from %s to %s (%s)", 
+                    reservation.getUser().getFirstName(), 
+                    reservation.getUser().getLastName(),
+                    reservation.getStartTime(), 
+                    reservation.getEndTime(),
+                    reservation.getStatus()));
+            }
+        }
+        
+        // Check class group timetables
+        List<String> classConflicts = new ArrayList<>();
+        List<ClassGroup> allClassGroups = classGroupRepository.findAll();
+        
+        for (ClassGroup classGroup : allClassGroups) {
+            if (classGroup.getTimetableEntries() == null) continue;
+            
+            for (TimetableEntry entry : classGroup.getTimetableEntries()) {
+                if (isClassroomMatch(classroomId, entry.getLocation()) && 
+                    entry.getDay().equalsIgnoreCase(dayOfWeek)) {
+                    
+                    int entryStartMinutes = convertTimeToMinutes(entry.getStartTime());
+                    int entryEndMinutes = convertTimeToMinutes(entry.getEndTime());
+                    
+                    if (hasTimeOverlap(requestStartMinutes, requestEndMinutes, 
+                                     entryStartMinutes, entryEndMinutes)) {
+                        classConflicts.add(String.format("Class '%s' (%s) from %s to %s", 
+                            entry.getName(), 
+                            classGroup.getName(),
+                            entry.getStartTime(), 
+                            entry.getEndTime()));
+                    }
+                }
+            }
+        }
+        
+        return new ConflictInfo(reservationConflicts, classConflicts);
+    }
+    
+    /**
      * Clean expired entries from cache
      * This can be called by a scheduled task
      */
@@ -258,5 +435,70 @@ public class ClassroomAvailabilityService {
         classroomTimetableCache.clear();
         cacheLastRefreshed = 0;
         logger.info("Timetable cache cleared");
+    }
+    
+    /**
+     * ConflictInfo class for detailed conflict reporting
+     */
+    public static class ConflictInfo {
+        private final List<String> reservationConflicts;
+        private final List<String> classConflicts;
+        
+        public ConflictInfo(List<String> reservationConflicts, List<String> classConflicts) {
+            this.reservationConflicts = reservationConflicts != null ? reservationConflicts : new ArrayList<>();
+            this.classConflicts = classConflicts != null ? classConflicts : new ArrayList<>();
+        }
+        
+        public boolean hasConflicts() {
+            return !reservationConflicts.isEmpty() || !classConflicts.isEmpty();
+        }
+        
+        public List<String> getReservationConflicts() { 
+            return reservationConflicts; 
+        }
+        
+        public List<String> getClassConflicts() { 
+            return classConflicts; 
+        }
+        
+        public String getDetailedMessage() {
+            if (!hasConflicts()) {
+                return "No conflicts found";
+            }
+            
+            StringBuilder message = new StringBuilder("Conflicts detected:\n");
+            
+            if (!classConflicts.isEmpty()) {
+                message.append("📚 Class Schedule Conflicts:\n");
+                for (String conflict : classConflicts) {
+                    message.append("  • ").append(conflict).append("\n");
+                }
+            }
+            
+            if (!reservationConflicts.isEmpty()) {
+                message.append("📅 Reservation Conflicts:\n");
+                for (String conflict : reservationConflicts) {
+                    message.append("  • ").append(conflict).append("\n");
+                }
+            }
+            
+            return message.toString();
+        }
+        
+        public String getShortMessage() {
+            if (!hasConflicts()) {
+                return "Available";
+            }
+            
+            List<String> issues = new ArrayList<>();
+            if (!classConflicts.isEmpty()) {
+                issues.add(classConflicts.size() + " class schedule conflict(s)");
+            }
+            if (!reservationConflicts.isEmpty()) {
+                issues.add(reservationConflicts.size() + " reservation conflict(s)");
+            }
+            
+            return String.join(" and ", issues);
+        }
     }
 }

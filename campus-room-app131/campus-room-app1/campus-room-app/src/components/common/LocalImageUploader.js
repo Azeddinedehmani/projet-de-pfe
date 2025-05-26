@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import LocalImageService from '../../utils/LocalImageService';
+import useAuth from '../../hooks/useAuth';
 
 // This component handles local image upload that saves to the browser's storage
-// rather than the server
+// rather than the server - now with user-specific storage
 const LocalImageUploader = ({ onImageSelect }) => {
+  const { currentUser } = useAuth();
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -16,29 +18,42 @@ const LocalImageUploader = ({ onImageSelect }) => {
       return;
     }
     
+    console.log('LocalImageUploader: File selected:', file.name, file.type, file.size);
+    console.log('LocalImageUploader: Current user ID:', currentUser?.id);
+    
+    // Validate file type
+    const extension = file.name.split('.').pop().toLowerCase();
+    if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
+      alert('Please upload an image file (JPG, PNG, GIF, WEBP)');
+      setUploading(false);
+      return;
+    }
+    
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image file must be smaller than 5MB');
+      setUploading(false);
+      return;
+    }
+    
     // Create a preview URL
     const reader = new FileReader();
     reader.onloadend = () => {
-      // Generate a unique filename based on timestamp and original filename
+      // Generate a user-specific unique filename
       const timestamp = new Date().getTime();
-      const fileName = file.name.replace(/\s+/g, '-').toLowerCase();
-      const uniqueFileName = `user-upload-${timestamp}-${fileName}`;
+      const userId = currentUser?.id || 'unknown';
+      const cleanFileName = file.name.replace(/\s+/g, '-').toLowerCase();
+      const uniqueFileName = `profile-${userId}-${timestamp}-${cleanFileName}`;
       
-      // Get file extension
-      const extension = fileName.split('.').pop().toLowerCase();
-      
-      // Validate file type
-      if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
-        alert('Please upload an image file (JPG, PNG, GIF, WEBP)');
-        setUploading(false);
-        return;
-      }
+      console.log('LocalImageUploader: Generated filename:', uniqueFileName);
       
       // For large images, resize before storing
       if (file.size > 1024 * 1024) { // If larger than 1MB
         resizeImage(file, 1200, (resizedDataUrl) => {
-          // Save to localStorage
-          const imageUrl = LocalImageService.saveImage(uniqueFileName, resizedDataUrl);
+          // Save to localStorage using user-specific storage
+          const imageUrl = LocalImageService.saveUserImage(userId, uniqueFileName, resizedDataUrl);
+          
+          console.log('LocalImageUploader: Saved resized image, URL:', imageUrl);
           
           // Update state
           setSelectedImage(uniqueFileName);
@@ -48,7 +63,7 @@ const LocalImageUploader = ({ onImageSelect }) => {
           // Notify parent component
           onImageSelect({
             target: {
-              name: 'image',
+              name: 'profileImageUrl',
               value: imageUrl
             }
           });
@@ -57,8 +72,10 @@ const LocalImageUploader = ({ onImageSelect }) => {
         // For smaller images, use as is
         const imageUrl = reader.result;
         
-        // Save to localStorage
-        const storedImageUrl = LocalImageService.saveImage(uniqueFileName, imageUrl);
+        // Save to localStorage using user-specific storage
+        const storedImageUrl = LocalImageService.saveUserImage(userId, uniqueFileName, imageUrl);
+        
+        console.log('LocalImageUploader: Saved original image, URL:', storedImageUrl);
         
         // Update state
         setSelectedImage(uniqueFileName);
@@ -68,11 +85,17 @@ const LocalImageUploader = ({ onImageSelect }) => {
         // Notify parent component
         onImageSelect({
           target: {
-            name: 'image',
+            name: 'profileImageUrl',
             value: storedImageUrl
           }
         });
       }
+    };
+    
+    reader.onerror = () => {
+      console.error('LocalImageUploader: Error reading file');
+      alert('Error reading file. Please try again.');
+      setUploading(false);
     };
     
     reader.readAsDataURL(file);

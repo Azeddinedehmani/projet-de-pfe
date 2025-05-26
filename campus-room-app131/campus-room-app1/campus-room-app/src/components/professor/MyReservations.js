@@ -395,6 +395,13 @@ const MyReservations = () => {
           >
             <i className="fas fa-ban me-1"></i> Canceled <span className="count-badge">{getStatusCount('canceled')}</span>
           </button>
+         
+<button 
+  className={`filter-tab ${filterStatus === 'used' ? 'active' : ''}`}
+  onClick={() => setFilterStatus('used')}
+>
+  <i className="fas fa-check-double me-1"></i> Used <span className="count-badge">{getStatusCount('used')}</span>
+</button>
         </div>
 
         <div className="search-and-date-filter">

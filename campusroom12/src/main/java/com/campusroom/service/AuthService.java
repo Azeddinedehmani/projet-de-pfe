@@ -17,6 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Random;
 
 import java.util.Date;
 import java.util.List;
@@ -192,44 +193,45 @@ public class AuthService {
     private void notifyAdminsAboutNewUser(User newUser) {
         // Implementation to email admins about new user
     }
-    @Transactional
-    public AuthResponse forgotPassword(ForgotPasswordRequest request) {
-        return userRepository.findByEmail(request.getEmail())
-                .map(user -> {
-                    // Générer un token unique
-                    String token = UUID.randomUUID().toString();
-                    
-                    // Sauvegarder le token et sa date d'expiration
-                    user.setResetToken(token);
-                    user.setResetTokenExpiry(new Date(System.currentTimeMillis() + 3600000)); // 1 heure
-                    userRepository.save(user);
-                    
-                    // Essayer d'envoyer un email
-                    boolean emailSent = false;
-                    try {
-                        emailSent = emailService.sendPasswordResetEmail(user.getEmail(), token);
-                    } catch (Exception e) {
-                        logger.error("Failed to send email: {}", e.getMessage(), e);
-                    }
-                    
-                    if (emailSent) {
-                        return AuthResponse.builder()
-                                .success(true)
-                                .message("Un lien de réinitialisation a été envoyé à votre adresse email")
-                                .build();
-                    } else {
-                        // Solution de secours : retourner directement le token
-                        return AuthResponse.builder()
-                                .success(true)
-                                .message("Utilisez ce token pour réinitialiser votre mot de passe: " + token)
-                                .build();
-                    }
-                })
-                .orElse(AuthResponse.builder()
-                        .success(false)
-                        .message("Aucun compte trouvé avec cet email")
-                        .build());
-    }
+   // Replace the forgotPassword method with this:
+@Transactional
+public AuthResponse forgotPassword(ForgotPasswordRequest request) {
+    return userRepository.findByEmail(request.getEmail())
+            .map(user -> {
+                // Generate a 5-digit verification code
+                String verificationCode = generateVerificationCode();
+                
+                // Save the code and expiration time (15 minutes)
+                user.setVerificationCode(verificationCode);
+                user.setVerificationCodeExpiry(new Date(System.currentTimeMillis() + 900000)); // 15 minutes
+                userRepository.save(user);
+                
+                // Try to send email
+                boolean emailSent = false;
+                try {
+                    emailSent = emailService.sendVerificationCodeEmail(user.getEmail(), verificationCode);
+                } catch (Exception e) {
+                    logger.error("Failed to send verification code email: {}", e.getMessage(), e);
+                }
+                
+                if (emailSent) {
+                    return AuthResponse.builder()
+                            .success(true)
+                            .message("Un code de vérification a été envoyé à votre adresse email")
+                            .build();
+                } else {
+                    // Fallback: return the code directly (for testing)
+                    return AuthResponse.builder()
+                            .success(true)
+                            .message("Code de vérification (test): " + verificationCode)
+                            .build();
+                }
+            })
+            .orElse(AuthResponse.builder()
+                    .success(false)
+                    .message("Aucun compte trouvé avec cet email")
+                    .build());
+}
 
     @Transactional
     public AuthResponse resetPassword(ResetPasswordRequest request) {
@@ -330,4 +332,95 @@ public AuthResponse changeUserStatus(Long userId, String status) {
 }
     
     
+        // Add this method to generate verification code
+private String generateVerificationCode() {
+    Random random = new Random();
+    return String.format("%05d", random.nextInt(100000));
+}
+
+     // Add this new method to verify the code
+@Transactional
+public AuthResponse verifyCode(VerifyCodeRequest request) {
+    return userRepository.findByEmail(request.getEmail())
+            .map(user -> {
+                // Check if verification code matches and hasn't expired
+                if (user.getVerificationCode() == null) {
+                    return AuthResponse.builder()
+                            .success(false)
+                            .message("Aucun code de vérification trouvé. Veuillez demander un nouveau code.")
+                            .build();
+                }
+                
+                if (!user.getVerificationCode().equals(request.getVerificationCode())) {
+                    return AuthResponse.builder()
+                            .success(false)
+                            .message("Code de vérification incorrect")
+                            .build();
+                }
+                
+                if (user.getVerificationCodeExpiry() != null && 
+                    user.getVerificationCodeExpiry().before(new Date())) {
+                    return AuthResponse.builder()
+                            .success(false)
+                            .message("Le code de vérification a expiré")
+                            .build();
+                }
+                
+                return AuthResponse.builder()
+                        .success(true)
+                        .message("Code de vérification validé avec succès")
+                        .build();
+            })
+            .orElse(AuthResponse.builder()
+                    .success(false)
+                    .message("Aucun compte trouvé avec cet email")
+                    .build());
+}
+
+      // Add this new method to reset password with verification code
+@Transactional
+public AuthResponse resetPasswordWithCode(ResetPasswordWithCodeRequest request) {
+    if (!request.getPassword().equals(request.getConfirmPassword())) {
+        return AuthResponse.builder()
+                .success(false)
+                .message("Les mots de passe ne correspondent pas")
+                .build();
+    }
+    
+    return userRepository.findByEmail(request.getEmail())
+            .map(user -> {
+                // Verify the code again
+                if (user.getVerificationCode() == null || 
+                    !user.getVerificationCode().equals(request.getVerificationCode())) {
+                    return AuthResponse.builder()
+                            .success(false)
+                            .message("Code de vérification invalide")
+                            .build();
+                }
+                
+                if (user.getVerificationCodeExpiry() != null && 
+                    user.getVerificationCodeExpiry().before(new Date())) {
+                    return AuthResponse.builder()
+                            .success(false)
+                            .message("Le code de vérification a expiré")
+                            .build();
+                }
+                
+                // Update password and clear verification code
+                user.setPassword(passwordEncoder.encode(request.getPassword()));
+                user.setVerificationCode(null);
+                user.setVerificationCodeExpiry(null);
+                userRepository.save(user);
+                
+                return AuthResponse.builder()
+                        .success(true)
+                        .message("Mot de passe réinitialisé avec succès")
+                        .build();
+            })
+            .orElse(AuthResponse.builder()
+                    .success(false)
+                    .message("Utilisateur non trouvé")
+                    .build());
+}     
+
 }

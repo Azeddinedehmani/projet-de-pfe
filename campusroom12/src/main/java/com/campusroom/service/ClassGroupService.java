@@ -5,10 +5,12 @@ import com.campusroom.dto.TimetableEntryDTO;
 import com.campusroom.dto.UserDTO;
 import com.campusroom.model.Branch;
 import com.campusroom.model.ClassGroup;
+import com.campusroom.model.Classroom;
 import com.campusroom.model.TimetableEntry;
 import com.campusroom.model.User;
 import com.campusroom.repository.BranchRepository;
 import com.campusroom.repository.ClassGroupRepository;
+import com.campusroom.repository.ClassroomRepository;
 import com.campusroom.repository.TimetableEntryRepository;
 import com.campusroom.repository.UserRepository;
 import org.slf4j.Logger;
@@ -34,6 +36,9 @@ public class ClassGroupService {
     
     @Autowired
     private UserRepository userRepository;
+    
+    @Autowired
+private ClassroomRepository classroomRepository;
     
     @Autowired
     private TimetableEntryRepository timetableEntryRepository;
@@ -218,41 +223,43 @@ public ClassGroupDTO createClassGroup(ClassGroupDTO classGroupDTO) {
     /**
      * Update timetable entries for a class group
      */
-    @Transactional
-    public ClassGroupDTO updateClassGroupTimetable(Long classGroupId, List<TimetableEntryDTO> timetableEntries) {
-        ClassGroup classGroup = classGroupRepository.findById(classGroupId)
-                .orElseThrow(() -> new RuntimeException("Class group not found with id: " + classGroupId));
-        
-        // Validate time policy before checking conflicts
-        validateTimetableTimePolicy(timetableEntries);
-        
-        // Check for timetable conflicts before updating
-        ConflictResult conflictResult = checkTimetableConflicts(classGroup, timetableEntries);
-        if (conflictResult.hasConflicts()) {
-            throw new RuntimeException("Timetable conflicts detected: " + conflictResult.getFormattedMessage());
-        }
-        
-        // Clear existing entries
-        classGroup.getTimetableEntries().clear();
-        
-        // Add new entries
-        if (timetableEntries != null) {
-            for (TimetableEntryDTO entryDTO : timetableEntries) {
-                TimetableEntry entry = convertToTimetableEntry(entryDTO);
-                classGroup.addTimetableEntry(entry);
-            }
-        }
-        
-        ClassGroup updatedClassGroup = classGroupRepository.save(classGroup);
-        
-        // Also update professor's timetable if a professor is assigned
-        if (classGroup.getProfessor() != null) {
-            syncProfessorTimetable(classGroup.getProfessor(), updatedClassGroup);
-        }
-        
-        return convertToClassGroupDTO(updatedClassGroup);
+  @Transactional
+public ClassGroupDTO updateClassGroupTimetable(Long classGroupId, List<TimetableEntryDTO> timetableEntries) {
+    ClassGroup classGroup = classGroupRepository.findById(classGroupId)
+            .orElseThrow(() -> new RuntimeException("Class group not found with id: " + classGroupId));
+    
+    // Validate time policy before checking conflicts
+    validateTimetableTimePolicy(timetableEntries);
+    
+    // ADD THIS LINE: Validate and normalize classroom locations
+    validateAndNormalizeClassroomLocations(timetableEntries);
+    
+    // Check for timetable conflicts before updating
+    ConflictResult conflictResult = checkTimetableConflicts(classGroup, timetableEntries);
+    if (conflictResult.hasConflicts()) {
+        throw new RuntimeException("Timetable conflicts detected: " + conflictResult.getFormattedMessage());
     }
     
+    // Clear existing entries
+    classGroup.getTimetableEntries().clear();
+    
+    // Add new entries
+    if (timetableEntries != null) {
+        for (TimetableEntryDTO entryDTO : timetableEntries) {
+            TimetableEntry entry = convertToTimetableEntry(entryDTO);
+            classGroup.addTimetableEntry(entry);
+        }
+    }
+    
+    ClassGroup updatedClassGroup = classGroupRepository.save(classGroup);
+    
+    // Also update professor's timetable if a professor is assigned
+    if (classGroup.getProfessor() != null) {
+        syncProfessorTimetable(classGroup.getProfessor(), updatedClassGroup);
+    }
+    
+    return convertToClassGroupDTO(updatedClassGroup);
+}
     /**
      * Get timetable entries for a student based on their class groups
      */
@@ -1020,4 +1027,59 @@ private void validateTimetableTimePolicy(List<TimetableEntryDTO> timetableEntrie
             return false;
         }
     }
+    
+    /**
+ * ADD THIS METHOD to your ClassGroupService.java
+ * Validates and normalizes timetable entries before saving
+ * 
+ * IMPORTANT: Make sure you have added this autowired dependency:
+ * @Autowired
+ * private ClassroomRepository classroomRepository;
+ */
+private void validateAndNormalizeClassroomLocations(List<TimetableEntryDTO> timetableEntries) {
+    if (timetableEntries == null || timetableEntries.isEmpty()) {
+        return;
+    }
+    
+    logger.debug("Validating and normalizing {} timetable entries", timetableEntries.size());
+    
+    for (TimetableEntryDTO entry : timetableEntries) {
+        if (entry.getLocation() != null && !entry.getLocation().trim().isEmpty()) {
+            String location = entry.getLocation().trim();
+            String originalLocation = location;
+            
+            // Try to resolve to actual classroom ID
+            try {
+                // Check if it's already a classroom ID
+                if (classroomRepository.existsById(location)) {
+                    logger.debug("Location '{}' is already a valid classroom ID", location);
+                    continue; // Already valid
+                }
+                
+                // Try to find by room number
+                List<Classroom> classrooms = classroomRepository.findAll();
+                boolean found = false;
+                
+                for (Classroom classroom : classrooms) {
+                    if (classroom.getRoomNumber().equals(location) || 
+                        classroom.getRoomNumber().equalsIgnoreCase(location)) {
+                        // Update the entry to use the classroom ID for consistency
+                        entry.setLocation(classroom.getId());
+                        logger.debug("Normalized location '{}' to classroom ID '{}'", 
+                                   originalLocation, classroom.getId());
+                        found = true;
+                        break;
+                    }
+                }
+                
+                if (!found) {
+                    logger.warn("Could not find classroom for location '{}' - keeping original value", location);
+                }
+                
+            } catch (Exception e) {
+                logger.warn("Could not validate classroom location '{}': {}", location, e.getMessage());
+            }
+        }
+    }
+}
 }

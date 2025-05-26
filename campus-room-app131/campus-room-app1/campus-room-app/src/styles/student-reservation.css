@@ -744,3 +744,13 @@ select:focus {
   
   /* Add additional dark mode styles as needed */
 }
+/* Add this to your reservation CSS files */
+.status-badge.status-used {
+    background-color: #10b981;
+    color: white;
+}
+
+.status-used {
+    background-color: #d1fae5 !important;
+    color: #065f46 !important;
+}

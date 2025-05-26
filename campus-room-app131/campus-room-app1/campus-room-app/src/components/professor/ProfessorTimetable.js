@@ -26,21 +26,6 @@ const ProfessorTimetable = () => {
   // Days of the week
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   
-  // Class types
-  const classTypes = ['Lecture', 'Lab', 'Study Group', 'Seminar', 'Tutorial', 'Office Hours', 'Meeting'];
-  
-  // Available colors
-  const availableColors = [
-    { name: 'Indigo', value: '#6366f1' },
-    { name: 'Green', value: '#10b981' },
-    { name: 'Blue', value: '#0ea5e9' },
-    { name: 'Red', value: '#ef4444' },
-    { name: 'Purple', value: '#8b5cf6' },
-    { name: 'Orange', value: '#f59e0b' },
-    { name: 'Teal', value: '#14b8a6' },
-    { name: 'Pink', value: '#ec4899' }
-  ];
-  
   // Update the useEffect hook that fetches timetable data
   useEffect(() => {
     const fetchTimetable = async () => {
@@ -304,182 +289,425 @@ const processTimetableData = (timetableEntries) => {
   // Week dates
   const weekDates = getWeekDates();
   
-  // Function to export schedule as iCal (.ics) file
-  const exportSchedule = async () => {
+  // Function to export schedule as PDF
+  const exportSchedulePDF = async () => {
     try {
-      // Use API to get ICS file
-      const response = await API.get('/api/timetable/my-timetable/export?format=ics', {
-        responseType: 'blob'
-      });
+      // Create a new window for PDF generation
+      const printWindow = window.open('', '_blank');
       
-      // Create blob from response data
-      const blob = new Blob([response.data], { type: 'text/calendar' });
-      const url = URL.createObjectURL(blob);
+      if (!printWindow) {
+        alert('Please allow popups to download the PDF');
+        return;
+      }
+
+      // Generate HTML content for PDF
+      const htmlContent = generatePDFContent();
       
-      // Create download link
-      const link = document.createElement('a');
-      link.download = 'class_schedule.ics';
-      link.href = url;
-      link.click();
+      // Write HTML to the new window
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
       
-      // Clean up
-      URL.revokeObjectURL(url);
+      // Wait for content to load, then trigger print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+          // Close the window after printing
+          setTimeout(() => {
+            printWindow.close();
+          }, 1000);
+        }, 500);
+      };
+      
     } catch (error) {
-      console.error('Error exporting schedule:', error);
-      alert('Failed to export schedule. Please try again later.');
-      
-      // Fallback to client-side generation if API fails
-      let icsContent = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//CampusRoom//Professor Timetable//EN'
-      ];
-      
-      // Add each class as an event
-      daysOfWeek.forEach((day, dayIndex) => {
-        if (timetableData[day]) {
-          timetableData[day].forEach(course => {
-            const eventDate = new Date(weekDates[dayIndex]);
-            const startTime = course.startTime.split(':');
-            const endTime = course.endTime.split(':');
-            
-            const startDateTime = new Date(eventDate);
-            startDateTime.setHours(parseInt(startTime[0]), parseInt(startTime[1] || 0), 0);
-            
-            const endDateTime = new Date(eventDate);
-            endDateTime.setHours(parseInt(endTime[0]), parseInt(endTime[1] || 0), 0);
-            
-            // Format dates for iCal (YYYYMMDDTHHmmss)
-            const formatDateForICS = (d) => {
-              return d.getFullYear() + 
-                    ('0' + (d.getMonth() + 1)).slice(-2) + 
-                    ('0' + d.getDate()).slice(-2) + 'T' + 
-                    ('0' + d.getHours()).slice(-2) + 
-                    ('0' + d.getMinutes()).slice(-2) + 
-                    ('0' + d.getSeconds()).slice(-2);
-            };
-            
-            icsContent = [
-              ...icsContent,
-              'BEGIN:VEVENT',
-              `UID:${course.id}@campusroom.edu`,
-              `DTSTAMP:${formatDateForICS(new Date())}`,
-              `DTSTART:${formatDateForICS(startDateTime)}`,
-              `DTEND:${formatDateForICS(endDateTime)}`,
-              `SUMMARY:${course.name}`,
-              `LOCATION:${course.location}`,
-              `DESCRIPTION:${course.type}${course.instructor ? ' with ' + course.instructor : ''}`,
-              'END:VEVENT'
-            ];
-          });
-        }
-      });
-      
-      icsContent.push('END:VCALENDAR');
-      
-      // Create download
-      const blob = new Blob([icsContent.join('\n')], { type: 'text/calendar' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.download = 'class_schedule.ics';
-      link.href = url;
-      link.click();
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
     }
   };
 
-  // Function to add a new class to the timetable
-  const addNewClass = async () => {
-    // Here we would show a modal for adding a new class
-    // For now, just use the course modal with an empty course
-    setSelectedCourse({
-      id: null,
-      name: '',
-      instructor: '',
-      location: '',
-      startTime: '09:00',
-      endTime: '10:30',
-      color: '#6366f1',
-      type: 'Lecture',
-      day: 'Monday',
-      isNew: true
+  // Generate HTML content for PDF - COMPLETELY REDESIGNED FOR SINGLE PAGE
+  const generatePDFContent = () => {
+    const weekDatesForPDF = getWeekDates();
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
     });
-    setShowCourseModal(true);
-  };
-
-  // Function to save a new or edited class
-  const saveClass = async (course) => {
-    try {
-      let response;
-      
-      if (course.isNew) {
-        // Create new class
-        delete course.isNew;
-        response = await API.post('/api/professor/timetable/class', course);
-      } else {
-        // Update existing class
-        response = await API.put(`/api/professor/timetable/class/${course.id}`, course);
-      }
-      
-      if (response && response.data && response.data.success) {
-        // Refresh the timetable data
-        const updatedTimetableData = { ...timetableData };
-        
-        if (course.isNew) {
-          // Add the new course to the timetable
-          if (!updatedTimetableData[course.day]) {
-            updatedTimetableData[course.day] = [];
-          }
-          updatedTimetableData[course.day].push(course);
-        } else {
-          // Update the existing course
-          if (updatedTimetableData[course.day]) {
-            const index = updatedTimetableData[course.day].findIndex(c => c.id === course.id);
-            if (index !== -1) {
-              updatedTimetableData[course.day][index] = course;
-            }
-          }
-        }
-        
-        setTimetableData(updatedTimetableData);
-        setShowCourseModal(false);
-      } else {
-        throw new Error('Failed to save class');
-      }
-    } catch (error) {
-      console.error('Error saving class:', error);
-      alert('Failed to save class. Please try again later.');
-    }
-  };
-
-  // Function to delete a class
-  const deleteClass = async (courseId) => {
-    if (!courseId || !window.confirm('Are you sure you want to delete this class?')) {
-      return;
-    }
     
-    try {
-      const response = await API.delete(`/api/professor/timetable/class/${courseId}`);
-      
-      if (response && response.data && response.data.success) {
-        // Remove the course from the timetable
-        const updatedTimetableData = { ...timetableData };
-        
-        // Find and remove the course
-        Object.keys(updatedTimetableData).forEach(day => {
-          updatedTimetableData[day] = updatedTimetableData[day].filter(course => course.id !== courseId);
-        });
-        
-        setTimetableData(updatedTimetableData);
-        setShowCourseModal(false);
-      } else {
-        throw new Error('Failed to delete class');
-      }
-    } catch (error) {
-      console.error('Error deleting class:', error);
-      alert('Failed to delete class. Please try again later.');
-    }
+    // College logo as base64 (you can replace this with your actual logo)
+    const collegeLogo = `data:image/svg+xml;base64,${btoa(`
+      <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="45" fill="#1e40af" stroke="#fff" stroke-width="2"/>
+        <text x="50" y="35" text-anchor="middle" fill="white" font-family="serif" font-size="20" font-weight="bold">EDU</text>
+        <text x="50" y="55" text-anchor="middle" fill="white" font-family="serif" font-size="12">COLLEGE</text>
+        <path d="M20 65 L50 75 L80 65" stroke="white" stroke-width="2" fill="none"/>
+      </svg>
+    `)}`;
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Professor Timetable - ${currentDate}</title>
+        <style>
+            @page {
+                size: A4 landscape;
+                margin: 0.2in;
+            }
+            
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: 'Arial', sans-serif;
+                color: #333;
+                background: white;
+                line-height: 1.2;
+                font-size: 12px;
+                page-break-inside: avoid;
+            }
+            
+            .pdf-container {
+                width: 100%;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                page-break-inside: avoid;
+            }
+            
+            .pdf-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 8px;
+                padding-bottom: 5px;
+                border-bottom: 2px solid #1e40af;
+                flex-shrink: 0;
+            }
+            
+            .college-info {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            
+            .college-logo {
+                width: 35px;
+                height: 35px;
+            }
+            
+            .college-details h1 {
+                color: #1e40af;
+                font-size: 16px;
+                margin-bottom: 1px;
+            }
+            
+            .college-details p {
+                color: #666;
+                font-size: 9px;
+                line-height: 1.1;
+            }
+            
+            .document-info {
+                text-align: right;
+            }
+            
+            .document-info h2 {
+                color: #1e40af;
+                font-size: 14px;
+                margin-bottom: 2px;
+            }
+            
+            .document-info p {
+                color: #666;
+                font-size: 8px;
+                line-height: 1.1;
+            }
+            
+            .professor-info {
+                background: #f8fafc;
+                padding: 4px 8px;
+                border-radius: 4px;
+                margin-bottom: 6px;
+                border-left: 3px solid #1e40af;
+                flex-shrink: 0;
+            }
+            
+            .professor-info h3 {
+                color: #1e40af;
+                margin-bottom: 1px;
+                font-size: 11px;
+            }
+            
+            .professor-info p {
+                font-size: 8px;
+            }
+            
+            .week-info {
+                text-align: center;
+                margin-bottom: 8px;
+                padding: 4px;
+                background: #e0f2fe;
+                border-radius: 4px;
+                flex-shrink: 0;
+            }
+            
+            .week-info h3 {
+                color: #0369a1;
+                margin-bottom: 2px;
+                font-size: 11px;
+            }
+            
+            .week-info p {
+                font-size: 8px;
+            }
+            
+            .timetable-container {
+                border: 1px solid #e5e7eb;
+                border-radius: 4px;
+                overflow: hidden;
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .timetable-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 9px;
+                height: 100%;
+                table-layout: fixed;
+            }
+            
+            .timetable-table th {
+                background: #1e40af;
+                color: white;
+                padding: 3px 2px;
+                text-align: center;
+                font-weight: bold;
+                border: 1px solid #1e3a8a;
+                font-size: 9px;
+                height: 35px;
+            }
+            
+            .timetable-table td {
+                padding: 1px;
+                border: 1px solid #d1d5db;
+                text-align: center;
+                vertical-align: middle;
+                height: 25px;
+                position: relative;
+                font-size: 8px;
+            }
+            
+            .time-slot {
+                background: #f1f5f9;
+                font-weight: bold;
+                color: #475569;
+                width: 60px;
+                font-size: 8px;
+                padding: 2px 1px;
+            }
+            
+            .course-block {
+                background: var(--course-color, #6366f1);
+                color: white;
+                padding: 4px 6px;
+                border-radius: 3px;
+                margin: 1px;
+                font-size: 8px;
+                text-align: center;
+                width: calc(100% - 2px);
+                height: calc(100% - 2px);
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                box-sizing: border-box;
+                min-height: 20px;
+            }
+            
+            .course-name {
+                font-weight: bold;
+                margin-bottom: 2px;
+                font-size: 9px;
+                line-height: 1.1;
+                text-align: center;
+            }
+            
+            .course-details {
+                font-size: 7px;
+                opacity: 0.9;
+                line-height: 1.0;
+                text-align: center;
+            }
+            
+            .empty-slot {
+                background: #f9fafb;
+                color: #9ca3af;
+                font-style: italic;
+                font-size: 7px;
+            }
+
+            .course-cell {
+                padding: 2px;
+                border: 1px solid #d1d5db;
+                text-align: center;
+                vertical-align: middle;
+                position: relative;
+                background: white;
+            }
+            
+            .footer {
+                margin-top: 4px;
+                padding-top: 3px;
+                border-top: 1px solid #e5e7eb;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 6px;
+                color: #666;
+                flex-shrink: 0;
+            }
+            
+            .footer-left {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            
+            .generated-info {
+                text-align: right;
+                font-size: 6px;
+            }
+            
+            /* Ensure no page breaks */
+            .pdf-container, .timetable-container, .timetable-table {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="pdf-container">
+            <div class="pdf-header">
+                <div class="college-info">
+                    <img src="${collegeLogo}" alt="College Logo" class="college-logo">
+                    <div class="college-details">
+                        <h1>University College</h1>
+                        <p>Department of Computer Science</p>
+                        <p>Academic Timetable System</p>
+                    </div>
+                </div>
+                <div class="document-info">
+                    <h2>Professor Timetable</h2>
+                    <p>Generated: ${currentDate}</p>
+                    <p>Year: ${new Date().getFullYear()}-${new Date().getFullYear() + 1}</p>
+                </div>
+            </div>
+
+            <div class="professor-info">
+                <h3>Prof: ${currentUser?.displayName || currentUser?.email || 'Unknown Professor'}</h3>
+                <p>Email: ${currentUser?.email || 'N/A'} | Dept: Computer Science</p>
+            </div>
+
+            <div class="week-info">
+                <h3>Week: ${formatDate(weekDatesForPDF[0])} - ${formatDate(weekDatesForPDF[4])}</h3>
+                <p>${currentWeek === 0 ? 'Current Week' : (currentWeek > 0 ? `${currentWeek} Week${currentWeek !== 1 ? 's' : ''} Ahead` : `${Math.abs(currentWeek)} Week${Math.abs(currentWeek) !== 1 ? 's' : ''} Ago`)}</p>
+            </div>
+
+            <div class="timetable-container">
+                <table class="timetable-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            ${daysOfWeek.map((day, index) => 
+                              `<th>${day}<br><small>${formatDate(weekDatesForPDF[index])}</small></th>`
+                            ).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${timeSlots.map((slot, slotIndex) => {
+                          const slotStartHour = parseInt(slot.split(':')[0]);
+                          return `
+                            <tr>
+                                <td class="time-slot">${slot.split(' - ')[0]}</td>
+                                ${daysOfWeek.map(day => {
+                                  // Check if this cell should be skipped (part of a rowspan from previous row)
+                                  const isPartOfRowspan = timetableData[day]?.some(course => {
+                                    const courseStartHour = parseInt(course.startTime.split(':')[0]);
+                                    const courseEndHour = parseInt(course.endTime.split(':')[0]);
+                                    const courseEndMin = parseInt(course.endTime.split(':')[1] || 0);
+                                    
+                                    // Calculate end hour considering minutes
+                                    const actualEndHour = courseEndMin > 0 ? courseEndHour + 1 : courseEndHour;
+                                    
+                                    // This slot is part of a rowspan if course started before this hour and ends after
+                                    return courseStartHour < slotStartHour && actualEndHour > slotStartHour;
+                                  });
+                                  
+                                  if (isPartOfRowspan) {
+                                    return ''; // Skip this cell - it's part of a rowspan
+                                  }
+                                  
+                                  // Find courses that start in this time slot
+                                  const coursesInSlot = timetableData[day]?.filter(course => {
+                                    const courseStartHour = parseInt(course.startTime.split(':')[0]);
+                                    return courseStartHour === slotStartHour;
+                                  }) || [];
+                                  
+                                  if (coursesInSlot.length === 0) {
+                                    return '<td class="empty-slot">-</td>';
+                                  }
+                                  
+                                  return coursesInSlot.map(course => {
+                                    // Calculate rowspan for multi-hour courses
+                                    const courseStartHour = parseInt(course.startTime.split(':')[0]);
+                                    const courseEndHour = parseInt(course.endTime.split(':')[0]);
+                                    const courseEndMin = parseInt(course.endTime.split(':')[1] || 0);
+                                    
+                                    // Calculate how many hour slots this course spans
+                                    let rowspan = courseEndHour - courseStartHour;
+                                    if (courseEndMin > 0) rowspan += 1;
+                                    
+                                    const rowspanAttr = rowspan > 1 ? `rowspan="${rowspan}"` : '';
+                                    
+                                    return `<td class="course-cell" ${rowspanAttr}>
+                                      <div class="course-block" style="--course-color: ${course.color};">
+                                        <div class="course-name">${course.name}</div>
+                                        <div class="course-details">
+                                          ${course.startTime}-${course.endTime}<br/>${course.location}
+                                        </div>
+                                      </div>
+                                    </td>`;
+                                  }).join('');
+                                }).join('')}
+                            </tr>
+                          `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="footer">
+                <div class="footer-left">
+                    <img src="${collegeLogo}" alt="Logo" style="width: 15px; height: 15px; opacity: 0.7;">
+                    <span>University College - Official Document</span>
+                </div>
+                <div class="generated-info">
+                    <div>Generated by Campus Timetable System | ID: TT-${Date.now()}</div>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
   };
   
+ 
   // Show loading state
   if (loading) {
     return (
@@ -515,7 +743,7 @@ const processTimetableData = (timetableEntries) => {
       <div className="timetable-header">
         <div className="timetable-title">
           <h1>Professor Timetable</h1>
-          <p>Manage your weekly teaching schedule</p>
+          <p>Your weekly teaching schedule</p>
         </div>
         
         <div className="timetable-actions">
@@ -534,13 +762,13 @@ const processTimetableData = (timetableEntries) => {
             </button>
           </div>
           
-          <button className="btn btn-primary" onClick={addNewClass}>
-            <i className="fas fa-plus"></i> Add Class
-          </button>
-          
-          <button className="btn btn-secondary" onClick={exportSchedule}>
-            <i className="fas fa-download"></i> Export Schedule
-          </button>
+          <div className="export-buttons">
+           
+            
+            <button className="btn btn-success" onClick={exportSchedulePDF}>
+              <i className="fas fa-file-pdf"></i> Download PDF
+            </button>
+          </div>
         </div>
       </div>
       
@@ -739,11 +967,8 @@ const processTimetableData = (timetableEntries) => {
                       </div>
                       
                       <div className="course-actions">
-                        <button className="btn-icon" title="Edit course">
-                          <i className="fas fa-edit"></i>
-                        </button>
-                        <button className="btn-icon" title="Delete course">
-                          <i className="fas fa-trash"></i>
+                        <button className="btn-icon" title="Course materials">
+                          <i className="fas fa-book"></i>
                         </button>
                       </div>
                     </div>
@@ -752,9 +977,6 @@ const processTimetableData = (timetableEntries) => {
               ) : (
                 <div className="no-courses">
                   <p>No classes scheduled for this day</p>
-                  <button className="btn btn-secondary" onClick={addNewClass}>
-                    <i className="fas fa-plus"></i> Add Class
-                  </button>
                 </div>
               )}
             </div>
@@ -784,217 +1006,72 @@ const processTimetableData = (timetableEntries) => {
         </div>
       </div>
       
-      {/* Course Modal - for viewing, adding or editing a course */}
+      {/* Course Modal - Read-only view like student version */}
       {showCourseModal && selectedCourse && (
         <div className="course-modal-backdrop" onClick={() => setShowCourseModal(false)}>
           <div className="course-modal" onClick={(e) => e.stopPropagation()}>
             <div className="course-modal-header" style={{ backgroundColor: selectedCourse.color }}>
-              <h3>{selectedCourse.isNew ? 'Add New Class' : (selectedCourse.name || 'Class Details')}</h3>
+              <h3>{selectedCourse.name}</h3>
               <button className="modal-close" onClick={() => setShowCourseModal(false)}>
                 <i className="fas fa-times"></i>
               </button>
             </div>
             
             <div className="course-modal-content">
-              {/* Editable form for creating or editing a class */}
-              <form className="course-edit-form">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="course-day">Day</label>
-                    <select
-                      id="course-day"
-                      name="day"
-                      value={selectedCourse.day}
-                      onChange={(e) => setSelectedCourse({...selectedCourse, day: e.target.value})}
-                    >
-                      {daysOfWeek.map(day => (
-                        <option key={day} value={day}>{day}</option>
-                      ))}
-                    </select>
+              <div className="course-details-grid">
+                <div className="course-detail">
+                  <div className="detail-label">
+                    <i className="fas fa-clock"></i> Time
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="course-type">Type</label>
-                    <select
-                      id="course-type"
-                      name="type"
-                      value={selectedCourse.type}
-                      onChange={(e) => setSelectedCourse({...selectedCourse, type: e.target.value})}
-                    >
-                      {classTypes.map(type => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="course-color">Color</label>
-                    <select
-                      id="course-color"
-                      name="color"
-                      value={selectedCourse.color}
-                      onChange={(e) => setSelectedCourse({...selectedCourse, color: e.target.value})}
-                      style={{ backgroundColor: selectedCourse.color, color: '#fff' }}
-                    >
-                      {availableColors.map(color => (
-                        <option 
-                          key={color.value} 
-                          value={color.value}
-                          style={{ backgroundColor: color.value, color: '#fff' }}
-                        >
-                          {color.name}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="detail-value">
+                    {selectedCourse.startTime} - {selectedCourse.endTime}
                   </div>
                 </div>
                 
-                <div className="form-group">
-                  <label htmlFor="course-name">Course Name *</label>
-                  <input
-                    type="text"
-                    id="course-name"
-                    name="name"
-                    placeholder="e.g. CS 101: Intro to Programming"
-                    value={selectedCourse.name}
-                    onChange={(e) => setSelectedCourse({...selectedCourse, name: e.target.value})}
-                    required
-                  />
-                </div>
-                
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="course-instructor">Course Assistant</label>
-                    <input
-                      type="text"
-                      id="course-instructor"
-                      name="instructor"
-                      placeholder="e.g. TA Smith"
-                      value={selectedCourse.instructor || ''}
-                      onChange={(e) => setSelectedCourse({...selectedCourse, instructor: e.target.value})}
-                    />
+                <div className="course-detail">
+                  <div className="detail-label">
+                    <i className="fas fa-calendar-day"></i> Day
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="course-location">Location *</label>
-                    <input
-                      type="text"
-                      id="course-location"
-                      name="location"
-                      placeholder="e.g. Room 101"
-                      value={selectedCourse.location || ''}
-                      onChange={(e) => setSelectedCourse({...selectedCourse, location: e.target.value})}
-                      required
-                    />
+                  <div className="detail-value">
+                    {selectedCourse.day}
                   </div>
                 </div>
                 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="course-startTime">Start Time *</label>
-                    <input
-                      type="time"
-                      id="course-startTime"
-                      name="startTime"
-                      value={selectedCourse.startTime}
-                      onChange={(e) => setSelectedCourse({...selectedCourse, startTime: e.target.value})}
-                      required
-                    />
+                <div className="course-detail">
+                  <div className="detail-label">
+                    <i className="fas fa-map-marker-alt"></i> Location
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="course-endTime">End Time *</label>
-                    <input
-                      type="time"
-                      id="course-endTime"
-                      name="endTime"
-                      value={selectedCourse.endTime}
-                      onChange={(e) => setSelectedCourse({...selectedCourse, endTime: e.target.value})}
-                      required
-                    />
+                  <div className="detail-value">
+                    {selectedCourse.location}
                   </div>
                 </div>
-              </form>
-              
-              {/* Optional: Add materials section */}
-              {!selectedCourse.isNew && (
-                <div className="course-materials">
-                  <h4>Course Materials</h4>
-                  <ul className="materials-list">
-                    <li>
-                      <i className="fas fa-file-pdf"></i>
-                      <span>Course Syllabus</span>
-                      <button className="btn-icon">
-                        <i className="fas fa-upload"></i>
-                      </button>
-                    </li>
-                    <li>
-                      <i className="fas fa-file-powerpoint"></i>
-                      <span>Lecture Slides</span>
-                      <button className="btn-icon">
-                        <i className="fas fa-upload"></i>
-                      </button>
-                    </li>
-                    <li>
-                      <i className="fas fa-file-alt"></i>
-                      <span>Assignment Details</span>
-                      <button className="btn-icon">
-                        <i className="fas fa-upload"></i>
-                      </button>
-                    </li>
-                    <li>
-                      <i className="fas fa-plus-circle"></i>
-                      <span>Add New Material</span>
-                      <button className="btn-icon">
-                        <i className="fas fa-plus"></i>
-                      </button>
-                    </li>
-                  </ul>
+                
+                <div className="course-detail">
+                  <div className="detail-label">
+                    <i className="fas fa-chalkboard-teacher"></i> Type
+                  </div>
+                  <div className="detail-value">
+                    {selectedCourse.type}
+                  </div>
                 </div>
-              )}
+                
+                {selectedCourse.instructor && (
+                  <div className="course-detail">
+                    <div className="detail-label">
+                      <i className="fas fa-user"></i> Assistant
+                    </div>
+                    <div className="detail-value">
+                      {selectedCourse.instructor}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             
             <div className="course-modal-footer">
-              {selectedCourse.isNew ? (
-                // Buttons for new class
-                <>
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary" 
-                    onClick={() => setShowCourseModal(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn btn-primary" 
-                    onClick={() => saveClass(selectedCourse)}
-                  >
-                    Add Class
-                  </button>
-                </>
-              ) : (
-                // Buttons for existing class
-                <>
-                  <button 
-                    type="button" 
-                    className="btn btn-danger" 
-                    onClick={() => deleteClass(selectedCourse.id)}
-                  >
-                    Delete
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary" 
-                    onClick={() => setShowCourseModal(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn btn-primary" 
-                    onClick={() => saveClass(selectedCourse)}
-                  >
-                    Save Changes
-                  </button>
-                </>
-              )}
+              <button className="btn btn-secondary" onClick={() => setShowCourseModal(false)}>
+                Close
+              </button>
             </div>
           </div>
         </div>

@@ -36,6 +36,26 @@ public class EmailService {
         }
     }
     
+    public boolean sendVerificationCodeEmail(String to, String verificationCode) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("Code de vérification - Réinitialisation de mot de passe");
+            message.setText("Votre code de vérification pour réinitialiser votre mot de passe est: " + 
+                          verificationCode + 
+                          "\n\nCe code expire dans 15 minutes." +
+                          "\n\nSi vous n'avez pas demandé cette réinitialisation, ignorez cet email.");
+            
+            logger.info("Tentative d'envoi du code de vérification à: {}", to);
+            mailSender.send(message);
+            logger.info("Code de vérification envoyé avec succès à: {}", to);
+            return true;
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'envoi du code de vérification à {}: {}", to, e.getMessage(), e);
+            return false;
+        }
+    }
+    
     public int sendBulkPasswordResetEmails(List<User> users) {
         int successCount = 0;
         for (User user : users) {

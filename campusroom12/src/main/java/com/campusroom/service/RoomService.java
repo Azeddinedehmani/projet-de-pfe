@@ -52,13 +52,23 @@ public class RoomService {
                 .map(this::convertToClassroomDTO)
                 .orElseThrow(() -> new RuntimeException("Classroom not found with id: " + id));
     }
-    
-    @Transactional
+  @Transactional
 public ClassroomDTO createClassroom(ClassroomDTO classroomDTO) {
     System.out.println("Service: createClassroom");
     System.out.println("Données reçues: " + classroomDTO);
     
     try {
+        // Validate that room number is provided
+        if (classroomDTO.getRoomNumber() == null || classroomDTO.getRoomNumber().trim().isEmpty()) {
+            throw new RuntimeException("Room number is required");
+        }
+        
+        // Check if a room with the same number already exists
+        String roomNumber = classroomDTO.getRoomNumber().trim();
+        if (classroomRepository.existsByRoomNumber(roomNumber)) {
+            throw new RuntimeException("A room with number '" + roomNumber + "' already exists");
+        }
+        
         Classroom classroom = new Classroom();
         
         // Générer ID si non fourni
@@ -70,7 +80,7 @@ public ClassroomDTO createClassroom(ClassroomDTO classroomDTO) {
             System.out.println("ID utilisé: " + classroom.getId());
         }
         
-        classroom.setRoomNumber(classroomDTO.getRoomNumber());
+        classroom.setRoomNumber(roomNumber);
         classroom.setType(classroomDTO.getType());
         classroom.setCapacity(classroomDTO.getCapacity());
         classroom.setFeatures(classroomDTO.getFeatures());
@@ -93,8 +103,8 @@ public ClassroomDTO createClassroom(ClassroomDTO classroomDTO) {
         throw new RuntimeException("Erreur lors de la création de la salle: " + e.getMessage(), e);
     }
 }
-    
-   @Transactional
+
+@Transactional
 public ClassroomDTO updateClassroom(String id, ClassroomDTO classroomDTO) {
     System.out.println("Service: updateClassroom(" + id + ")");
     System.out.println("Données reçues: " + classroomDTO);
@@ -102,7 +112,21 @@ public ClassroomDTO updateClassroom(String id, ClassroomDTO classroomDTO) {
     try {
         return classroomRepository.findById(id)
             .map(classroom -> {
-                classroom.setRoomNumber(classroomDTO.getRoomNumber());
+                // Validate that room number is provided
+                if (classroomDTO.getRoomNumber() == null || classroomDTO.getRoomNumber().trim().isEmpty()) {
+                    throw new RuntimeException("Room number is required");
+                }
+                
+                String newRoomNumber = classroomDTO.getRoomNumber().trim();
+                
+                // Check if the new room number is different from current and if it already exists
+                if (!classroom.getRoomNumber().equals(newRoomNumber)) {
+                    if (classroomRepository.existsByRoomNumber(newRoomNumber)) {
+                        throw new RuntimeException("A room with number '" + newRoomNumber + "' already exists");
+                    }
+                }
+                
+                classroom.setRoomNumber(newRoomNumber);
                 classroom.setType(classroomDTO.getType());
                 classroom.setCapacity(classroomDTO.getCapacity());
                 classroom.setFeatures(classroomDTO.getFeatures());
@@ -125,7 +149,7 @@ public ClassroomDTO updateClassroom(String id, ClassroomDTO classroomDTO) {
         throw new RuntimeException("Erreur lors de la mise à jour de la salle: " + e.getMessage(), e);
     }
 }
-    @Transactional
+@Transactional
     public void deleteClassroom(String id) {
         System.out.println("Service: deleteClassroom(" + id + ")");
         

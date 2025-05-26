@@ -76,7 +76,7 @@ const ResetPassword = () => {
     <div className="landing-container">
       <div className="branding">
         <div className="logo-container">
-          <img src="/images/logo.png" alt="Campus Room Logo" className="logo" />
+          <img src="/image/pfe-logo.png" alt="Campus Room Logo" className="logo" />
           <h1>Campus<span>Room</span></h1>
         </div>
         <p className="tagline">Smart Classroom Management System</p>

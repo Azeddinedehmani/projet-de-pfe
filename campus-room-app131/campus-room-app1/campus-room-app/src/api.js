@@ -95,6 +95,8 @@ export const fileAPI = {
 };
 
 // Auth API calls
+// Replace your existing authAPI object with this updated version:
+
 export const authAPI = {
   login: (email, password, rememberMe) => {
     console.log('Login request:', { email, password, rememberMe });
@@ -113,6 +115,20 @@ export const authAPI = {
   resetPassword: (token, password, confirmPassword) => {
     return instance.post('/auth/reset-password', { token, password, confirmPassword });
   },
+  
+  // ADD THESE TWO NEW METHODS:
+  verifyCode: (email, verificationCode) => {
+    return instance.post('/auth/verify-code', { email, verificationCode });
+  },
+  
+  resetPasswordWithCode: (email, verificationCode, password, confirmPassword) => {
+    return instance.post('/auth/reset-password-with-code', { 
+      email, 
+      verificationCode, 
+      password, 
+      confirmPassword 
+    });
+  }
 };
 
 // Enhanced Student API calls with robust fallback mechanisms

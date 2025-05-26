@@ -11,8 +11,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.HttpStatus;
 
 /**
  * Contrôleur pour la gestion des salles (salles de classe et salles d'étude)
@@ -56,40 +58,83 @@ public class RoomController {
         return ResponseEntity.ok(classroom);
     }
     
-    @PostMapping("/classrooms")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ClassroomDTO> createClassroom(@RequestBody ClassroomDTO classroomDTO) {
-        System.out.println("POST /api/rooms/classrooms");
-        System.out.println("Données reçues: " + classroomDTO);
-        
-        try {
-            ClassroomDTO createdClassroom = roomService.createClassroom(classroomDTO);
-            System.out.println("Salle créée avec succès: " + createdClassroom);
-            return ResponseEntity.ok(createdClassroom);
-        } catch (Exception e) {
-            System.err.println("Erreur lors de la création de la salle: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-    }
+   @PostMapping("/classrooms")
+@PreAuthorize("hasRole('ADMIN')")
+public ResponseEntity<?> createClassroom(@RequestBody ClassroomDTO classroomDTO) {
+    System.out.println("POST /api/rooms/classrooms");
+    System.out.println("Données reçues: " + classroomDTO);
     
-    @PutMapping("/classrooms/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ClassroomDTO> updateClassroom(@PathVariable String id, @RequestBody ClassroomDTO classroomDTO) {
-        System.out.println("PUT /api/rooms/classrooms/" + id);
-        System.out.println("Données reçues pour mise à jour: " + classroomDTO);
+    try {
+        ClassroomDTO createdClassroom = roomService.createClassroom(classroomDTO);
+        System.out.println("Salle créée avec succès: " + createdClassroom);
+        return ResponseEntity.ok(createdClassroom);
+    } catch (RuntimeException e) {
+        System.err.println("Erreur lors de la création de la salle: " + e.getMessage());
         
-        try {
-            ClassroomDTO updatedClassroom = roomService.updateClassroom(id, classroomDTO);
-            System.out.println("Salle mise à jour avec succès: " + updatedClassroom);
-            return ResponseEntity.ok(updatedClassroom);
-        } catch (Exception e) {
-            System.err.println("Erreur lors de la mise à jour de la salle: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
+        // Return a structured error response
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("success", false);
+        errorResponse.put("message", e.getMessage());
+        errorResponse.put("timestamp", new Date());
+        
+        // Return 400 Bad Request for validation errors
+        if (e.getMessage().contains("already exists") || e.getMessage().contains("is required")) {
+            return ResponseEntity.badRequest().body(errorResponse);
         }
+        
+        // Return 500 Internal Server Error for other runtime exceptions
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    } catch (Exception e) {
+        System.err.println("Erreur inattendue lors de la création de la salle: " + e.getMessage());
+        e.printStackTrace();
+        
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("success", false);
+        errorResponse.put("message", "An unexpected error occurred while creating the classroom");
+        errorResponse.put("timestamp", new Date());
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
+}
+
+@PutMapping("/classrooms/{id}")
+@PreAuthorize("hasRole('ADMIN')")
+public ResponseEntity<?> updateClassroom(@PathVariable String id, @RequestBody ClassroomDTO classroomDTO) {
+    System.out.println("PUT /api/rooms/classrooms/" + id);
+    System.out.println("Données reçues pour mise à jour: " + classroomDTO);
     
+    try {
+        ClassroomDTO updatedClassroom = roomService.updateClassroom(id, classroomDTO);
+        System.out.println("Salle mise à jour avec succès: " + updatedClassroom);
+        return ResponseEntity.ok(updatedClassroom);
+    } catch (RuntimeException e) {
+        System.err.println("Erreur lors de la mise à jour de la salle: " + e.getMessage());
+        
+        // Return a structured error response
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("success", false);
+        errorResponse.put("message", e.getMessage());
+        errorResponse.put("timestamp", new Date());
+        
+        // Return 400 Bad Request for validation errors
+        if (e.getMessage().contains("already exists") || e.getMessage().contains("is required") || e.getMessage().contains("not found")) {
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+        
+        // Return 500 Internal Server Error for other runtime exceptions
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    } catch (Exception e) {
+        System.err.println("Erreur inattendue lors de la mise à jour de la salle: " + e.getMessage());
+        e.printStackTrace();
+        
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("success", false);
+        errorResponse.put("message", "An unexpected error occurred while updating the classroom");
+        errorResponse.put("timestamp", new Date());
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+}
     @DeleteMapping("/classrooms/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Boolean>> deleteClassroom(@PathVariable String id) {

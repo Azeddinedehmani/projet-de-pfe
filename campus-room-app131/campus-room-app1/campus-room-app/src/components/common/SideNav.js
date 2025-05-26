@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import LocalImage from './LocalImage';
 import '../../styles/dashboard.css';
 import '../../styles/notifications.css';
 
@@ -10,19 +11,41 @@ const SideNav = ({
   onLogout, 
   currentUser, 
   userRole,
-  notificationCount = 0  // Add a prop for notification count
+  notificationCount = 0
 }) => {
+  
+  // Helper function to get user initials
+  const getUserInitials = () => {
+    if (currentUser?.firstName && currentUser?.lastName) {
+      return `${currentUser.firstName.charAt(0)}${currentUser.lastName.charAt(0)}`.toUpperCase();
+    }
+    return userRole.charAt(0).toUpperCase();
+  };
+  
   return (
     <div className="sidebar-nav">
       <div className="sidebar-header">
-        <img src={logoSrc} alt={`${title} Logo`} className="sidebar-logo" />
+        <img src="/image/pfe-logo.png" alt={`${title} Logo`} className="sidebar-logo" />
         <h2>{title.substring(0, title.length - 4)}<span>{title.substring(title.length - 4)}</span></h2>
       </div>
       
       {/* User Profile Section */}
       <div className="user-profile">
         <div className="user-avatar">
-          {currentUser?.firstName?.charAt(0) || userRole.charAt(0)}
+          {currentUser?.profileImageUrl ? (
+            <div className="avatar-image-container">
+              <LocalImage 
+                src={currentUser.profileImageUrl}
+                alt={`${currentUser.firstName} ${currentUser.lastName}`}
+                fallbackSrc="/images/default-profile.jpg"
+                className="avatar-image"
+              />
+            </div>
+          ) : (
+            <div className="user-initials">
+              {getUserInitials()}
+            </div>
+          )}
         </div>
         <div className="user-info">
           <div className="user-name">

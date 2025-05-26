@@ -151,11 +151,13 @@ public class StudentReservationService {
             // Validate reservation based on settings
             validateReservationRequest(requestDTO, date, currentUser);
 
-            // Vérifier qu'il n'y a pas de conflit
-            if (!availabilityService.isClassroomAvailable(classroom.getId(), date, 
-                                                       requestDTO.getStartTime(), requestDTO.getEndTime())) {
-                throw new RuntimeException("Cette salle n'est plus disponible pour cette plage horaire");
-            }
+            // Vérifier qu'il n'y a pas de conflit avec détection détaillée
+ClassroomAvailabilityService.ConflictInfo conflictInfo = availabilityService.getDetailedConflictInfo(
+    classroom.getId(), date, requestDTO.getStartTime(), requestDTO.getEndTime());
+
+if (conflictInfo.hasConflicts()) {
+    throw new RuntimeException("Classroom conflict detected:\n" + conflictInfo.getDetailedMessage());
+}
             
             // Créer la réservation avec un ID UUID
             Reservation reservation = new Reservation();
@@ -256,10 +258,12 @@ public class StudentReservationService {
                 !reservation.getStartTime().equals(requestDTO.getStartTime()) ||
                 !reservation.getEndTime().equals(requestDTO.getEndTime())) {
                 
-                if (!availabilityService.isClassroomAvailable(newClassroom.getId(), date, 
-                                                          requestDTO.getStartTime(), requestDTO.getEndTime())) {
-                    throw new RuntimeException("La salle n'est pas disponible pour cette plage horaire");
-                }
+              ClassroomAvailabilityService.ConflictInfo conflictInfo = availabilityService.getDetailedConflictInfo(
+    newClassroom.getId(), date, requestDTO.getStartTime(), requestDTO.getEndTime());
+
+if (conflictInfo.hasConflicts()) {
+    throw new RuntimeException("Classroom conflict detected:\n" + conflictInfo.getDetailedMessage());
+}
             }
             
             // Mettre à jour la réservation avec les nouvelles valeurs

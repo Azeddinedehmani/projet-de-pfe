@@ -59,6 +59,11 @@ public class ProfileService {
             user.setPhone(profileDTO.getPhone());
         }
         
+        // Update profile image URL if provided
+        if (profileDTO.getProfileImageUrl() != null) {
+            user.setProfileImageUrl(profileDTO.getProfileImageUrl());
+        }
+        
         // Save updated user
         User updatedUser = userRepository.save(user);
         
@@ -95,6 +100,20 @@ public class ProfileService {
     }
     
     /**
+     * Update profile image URL
+     * @param userId User ID
+     * @param imageUrl Profile image URL
+     */
+    @Transactional
+    public void updateProfileImage(Long userId, String imageUrl) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+        
+        user.setProfileImageUrl(imageUrl);
+        userRepository.save(user);
+    }
+    
+    /**
      * Convert User entity to ProfileDTO
      * @param user User entity
      * @return ProfileDTO
@@ -108,17 +127,9 @@ public class ProfileService {
         profileDTO.setRole(user.getRole().name());
         profileDTO.setDepartment(user.getDepartment());
         profileDTO.setPhone(user.getPhone());
+        profileDTO.setProfileImageUrl(user.getProfileImageUrl()); // Include profile image URL
         profileDTO.setLastLogin(user.getLastLogin());
         
         return profileDTO;
     }
-    @Transactional
-public void updateProfileImage(Long userId, String imageUrl) {
-    User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
-    
-    // Add a field to your User entity for profile image URL
-    user.setProfileImageUrl(imageUrl);
-    userRepository.save(user);
-}
 }

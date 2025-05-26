@@ -14,10 +14,13 @@ import java.util.List;
 
 @Repository
 public interface ReservationRepository extends JpaRepository<Reservation, String> {
+    
     // Méthodes de base
     List<Reservation> findByStatus(String status);
+    
     int countByStatus(String status);
-     List<Reservation> findByClassroom(Classroom classroom);
+    
+    List<Reservation> findByClassroom(Classroom classroom);
     
     // Méthodes liées à l'utilisateur
     List<Reservation> findByUser(User user);
@@ -78,5 +81,10 @@ public interface ReservationRepository extends JpaRepository<Reservation, String
     @Query("SELECT FUNCTION('MONTH', r.date) as month, COUNT(r) as count FROM Reservation r WHERE r.user.role = :role GROUP BY FUNCTION('MONTH', r.date)")
     List<Object[]> countReservationsByMonthAndRole(@Param("role") User.Role role);
     
-    public List<Reservation> findByUserAndDateBetweenAndStatusIn(User currentUser, Date weekStart, Date weekEnd, List<String> of);
+    List<Reservation> findByUserAndDateBetweenAndStatusIn(User currentUser, Date weekStart, Date weekEnd, List<String> statuses);
+    
+    // Method for auto-rejection: Find pending reservations where date has arrived or passed
+    List<Reservation> findByStatusAndDateLessThanEqual(String status, Date date);
+    
+    
 }
