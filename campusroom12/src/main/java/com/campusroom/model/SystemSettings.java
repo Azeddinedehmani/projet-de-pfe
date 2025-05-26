@@ -28,24 +28,6 @@ public class SystemSettings {
     @Column(name = "email_notifications")
     private boolean emailNotifications;
     
-    @Column(name = "notification_reservation_created")
-    private boolean notificationReservationCreated;
-    
-    @Column(name = "notification_reservation_approved")
-    private boolean notificationReservationApproved;
-    
-    @Column(name = "notification_reservation_rejected")
-    private boolean notificationReservationRejected;
-    
-    @Column(name = "notification_new_user")
-    private boolean notificationNewUser;
-    
-    @Column(name = "notification_system_updates")
-    private boolean notificationSystemUpdates;
-    
-    @Column(name = "notification_daily_digest")
-    private boolean notificationDailyDigest;
-    
     @Column(name = "max_days_in_advance")
     private int maxDaysInAdvance;
     
@@ -149,54 +131,6 @@ public class SystemSettings {
         this.emailNotifications = emailNotifications;
     }
 
-    public boolean isNotificationReservationCreated() {
-        return notificationReservationCreated;
-    }
-
-    public void setNotificationReservationCreated(boolean notificationReservationCreated) {
-        this.notificationReservationCreated = notificationReservationCreated;
-    }
-
-    public boolean isNotificationReservationApproved() {
-        return notificationReservationApproved;
-    }
-
-    public void setNotificationReservationApproved(boolean notificationReservationApproved) {
-        this.notificationReservationApproved = notificationReservationApproved;
-    }
-
-    public boolean isNotificationReservationRejected() {
-        return notificationReservationRejected;
-    }
-
-    public void setNotificationReservationRejected(boolean notificationReservationRejected) {
-        this.notificationReservationRejected = notificationReservationRejected;
-    }
-
-    public boolean isNotificationNewUser() {
-        return notificationNewUser;
-    }
-
-    public void setNotificationNewUser(boolean notificationNewUser) {
-        this.notificationNewUser = notificationNewUser;
-    }
-
-    public boolean isNotificationSystemUpdates() {
-        return notificationSystemUpdates;
-    }
-
-    public void setNotificationSystemUpdates(boolean notificationSystemUpdates) {
-        this.notificationSystemUpdates = notificationSystemUpdates;
-    }
-
-    public boolean isNotificationDailyDigest() {
-        return notificationDailyDigest;
-    }
-
-    public void setNotificationDailyDigest(boolean notificationDailyDigest) {
-        this.notificationDailyDigest = notificationDailyDigest;
-    }
-
     public int getMaxDaysInAdvance() {
         return maxDaysInAdvance;
     }
@@ -260,5 +194,4 @@ public class SystemSettings {
     public void setUpdatedAt(Date updatedAt) {
         this.updatedAt = updatedAt;
     }
-    
 }

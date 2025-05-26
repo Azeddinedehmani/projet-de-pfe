@@ -35,7 +35,7 @@ public class SettingsService {
         settings.setAutoApproveProfessor(settingsDTO.isAutoApproveProfessor());
         settings.setAutoApproveStudent(settingsDTO.isAutoApproveStudent());
         
-        // Update email settings (uniquement pour les mots de passe)
+        // Update email settings (only for password reset functionality)
         settings.setEmailNotifications(settingsDTO.isEmailNotifications());
         
         // Update reservation settings

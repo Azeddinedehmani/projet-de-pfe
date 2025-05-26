@@ -59,13 +59,7 @@ public class SystemSettingsProvider {
                     defaultSettings.setAutoApproveAdmin(true);
                     defaultSettings.setAutoApproveProfessor(false);
                     defaultSettings.setAutoApproveStudent(false);
-                    defaultSettings.setEmailNotifications(true);
-                    defaultSettings.setNotificationReservationCreated(true);
-                    defaultSettings.setNotificationReservationApproved(true);
-                    defaultSettings.setNotificationReservationRejected(true);
-                    defaultSettings.setNotificationNewUser(true);
-                    defaultSettings.setNotificationSystemUpdates(true);
-                    defaultSettings.setNotificationDailyDigest(false);
+                    defaultSettings.setEmailNotifications(true); // For password reset only
                     defaultSettings.setMaxDaysInAdvance(30);
                     defaultSettings.setMinTimeBeforeReservation(1);
                     defaultSettings.setMaxHoursPerReservation(4);
@@ -95,12 +89,6 @@ public class SystemSettingsProvider {
                 .autoApproveProfessor(settings.isAutoApproveProfessor())
                 .autoApproveStudent(settings.isAutoApproveStudent())
                 .emailNotifications(settings.isEmailNotifications())
-                .reservationCreated(settings.isNotificationReservationCreated())
-                .reservationApproved(settings.isNotificationReservationApproved())
-                .reservationRejected(settings.isNotificationReservationRejected())
-                .newUserRegistered(settings.isNotificationNewUser())
-                .systemUpdates(settings.isNotificationSystemUpdates())
-                .dailyDigest(settings.isNotificationDailyDigest())
                 .maxDaysInAdvance(settings.getMaxDaysInAdvance())
                 .minTimeBeforeReservation(settings.getMinTimeBeforeReservation())
                 .maxHoursPerReservation(settings.getMaxHoursPerReservation())

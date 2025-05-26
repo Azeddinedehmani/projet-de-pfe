@@ -18,14 +18,8 @@ public class SystemSettingsDTO {
     private boolean autoApproveProfessor;
     private boolean autoApproveStudent;
     
-    // Notification Settings
+    // Email Settings (only for password reset)
     private boolean emailNotifications;
-    private boolean reservationCreated;
-    private boolean reservationApproved;
-    private boolean reservationRejected;
-    private boolean newUserRegistered;
-    private boolean systemUpdates;
-    private boolean dailyDigest;
     
     // Reservation Settings
     private int maxDaysInAdvance;
@@ -100,54 +94,6 @@ public class SystemSettingsDTO {
         this.emailNotifications = emailNotifications;
     }
 
-    public boolean isReservationCreated() {
-        return reservationCreated;
-    }
-
-    public void setReservationCreated(boolean reservationCreated) {
-        this.reservationCreated = reservationCreated;
-    }
-
-    public boolean isReservationApproved() {
-        return reservationApproved;
-    }
-
-    public void setReservationApproved(boolean reservationApproved) {
-        this.reservationApproved = reservationApproved;
-    }
-
-    public boolean isReservationRejected() {
-        return reservationRejected;
-    }
-
-    public void setReservationRejected(boolean reservationRejected) {
-        this.reservationRejected = reservationRejected;
-    }
-
-    public boolean isNewUserRegistered() {
-        return newUserRegistered;
-    }
-
-    public void setNewUserRegistered(boolean newUserRegistered) {
-        this.newUserRegistered = newUserRegistered;
-    }
-
-    public boolean isSystemUpdates() {
-        return systemUpdates;
-    }
-
-    public void setSystemUpdates(boolean systemUpdates) {
-        this.systemUpdates = systemUpdates;
-    }
-
-    public boolean isDailyDigest() {
-        return dailyDigest;
-    }
-
-    public void setDailyDigest(boolean dailyDigest) {
-        this.dailyDigest = dailyDigest;
-    }
-
     public int getMaxDaysInAdvance() {
         return maxDaysInAdvance;
     }
@@ -218,12 +164,6 @@ public class SystemSettingsDTO {
         private boolean autoApproveProfessor;
         private boolean autoApproveStudent;
         private boolean emailNotifications;
-        private boolean reservationCreated;
-        private boolean reservationApproved;
-        private boolean reservationRejected;
-        private boolean newUserRegistered;
-        private boolean systemUpdates;
-        private boolean dailyDigest;
         private int maxDaysInAdvance;
         private int minTimeBeforeReservation;
         private int maxHoursPerReservation;
@@ -272,36 +212,6 @@ public class SystemSettingsDTO {
             return this;
         }
         
-        public SystemSettingsDTOBuilder reservationCreated(boolean reservationCreated) {
-            this.reservationCreated = reservationCreated;
-            return this;
-        }
-        
-        public SystemSettingsDTOBuilder reservationApproved(boolean reservationApproved) {
-            this.reservationApproved = reservationApproved;
-            return this;
-        }
-        
-        public SystemSettingsDTOBuilder reservationRejected(boolean reservationRejected) {
-            this.reservationRejected = reservationRejected;
-            return this;
-        }
-        
-        public SystemSettingsDTOBuilder newUserRegistered(boolean newUserRegistered) {
-            this.newUserRegistered = newUserRegistered;
-            return this;
-        }
-        
-        public SystemSettingsDTOBuilder systemUpdates(boolean systemUpdates) {
-            this.systemUpdates = systemUpdates;
-            return this;
-        }
-        
-        public SystemSettingsDTOBuilder dailyDigest(boolean dailyDigest) {
-            this.dailyDigest = dailyDigest;
-            return this;
-        }
-        
         public SystemSettingsDTOBuilder maxDaysInAdvance(int maxDaysInAdvance) {
             this.maxDaysInAdvance = maxDaysInAdvance;
             return this;
@@ -347,12 +257,6 @@ public class SystemSettingsDTO {
             dto.setAutoApproveProfessor(this.autoApproveProfessor);
             dto.setAutoApproveStudent(this.autoApproveStudent);
             dto.setEmailNotifications(this.emailNotifications);
-            dto.setReservationCreated(this.reservationCreated);
-            dto.setReservationApproved(this.reservationApproved);
-            dto.setReservationRejected(this.reservationRejected);
-            dto.setNewUserRegistered(this.newUserRegistered);
-            dto.setSystemUpdates(this.systemUpdates);
-            dto.setDailyDigest(this.dailyDigest);
             dto.setMaxDaysInAdvance(this.maxDaysInAdvance);
             dto.setMinTimeBeforeReservation(this.minTimeBeforeReservation);
             dto.setMaxHoursPerReservation(this.maxHoursPerReservation);
