@@ -1,5 +1,4 @@
 import API from '../api';
-import ReservationEmailService from './ReservationEmailService';
 import { generateId } from '../utils/helpers';
 
 /**
@@ -36,25 +35,6 @@ class ReportService {
     
     // Listen for room changes
     document.addEventListener('room-updated', this.handleRoomUpdate.bind(this));
-    
-    // Process queued emails when reports are accessed
-    this.processQueuedEmails();
-  }
-
-  /**
-   * Process any queued emails that couldn't be sent previously
-   */
-  async processQueuedEmails() {
-    try {
-      const result = await ReservationEmailService.processEmailQueue();
-      if (result && result.success > 0) {
-        console.log(`Processed ${result.success} queued emails when loading reports`);
-      }
-      return result;
-    } catch (error) {
-      console.error('Error processing email queue in ReportService:', error);
-      return { success: 0, failed: 0 };
-    }
   }
 
   /**

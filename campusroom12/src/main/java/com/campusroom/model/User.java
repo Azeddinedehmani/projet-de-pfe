@@ -70,14 +70,11 @@ public class User {
     private Date updatedAt;
     
     // Add these fields to your User.java model
-private String verificationCode;
-private Date verificationCodeExpiry;
+    private String verificationCode;
+    private Date verificationCodeExpiry;
 
-    @Temporal(TemporalType.TIMESTAMP)
-    @Column(name = "last_login")
-    private Date lastLogin;
-    
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    // FIXED: Changed cascade strategy to avoid orphan removal issues
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private List<TimetableEntry> timetableEntries = new ArrayList<>();
 
@@ -89,11 +86,19 @@ private Date verificationCodeExpiry;
     protected void onCreate() {
         createdAt = new Date();
         updatedAt = new Date();
+        // Ensure timetable entries list is initialized
+        if (timetableEntries == null) {
+            timetableEntries = new ArrayList<>();
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = new Date();
+        // Ensure timetable entries list is initialized
+        if (timetableEntries == null) {
+            timetableEntries = new ArrayList<>();
+        }
     }
 
     // Getters
@@ -153,11 +158,10 @@ private Date verificationCodeExpiry;
         return updatedAt;
     }
 
-    public Date getLastLogin() {
-        return lastLogin;
-    }
-    
     public List<TimetableEntry> getTimetableEntries() {
+        if (timetableEntries == null) {
+            timetableEntries = new ArrayList<>();
+        }
         return timetableEntries;
     }
 
@@ -218,36 +222,57 @@ private Date verificationCodeExpiry;
         this.updatedAt = updatedAt;
     }
 
-    public void setLastLogin(Date lastLogin) {
-        this.lastLogin = lastLogin;
-    }
-    
+    // FIXED: Safe setter that doesn't break Hibernate's collection tracking
     public void setTimetableEntries(List<TimetableEntry> timetableEntries) {
-        this.timetableEntries = timetableEntries;
+        if (this.timetableEntries == null) {
+            this.timetableEntries = new ArrayList<>();
+        }
+        
+        // Clear existing entries instead of replacing the collection
+        this.timetableEntries.clear();
+        
+        // Add new entries if provided
+        if (timetableEntries != null) {
+            this.timetableEntries.addAll(timetableEntries);
+        }
     }
     
-    // Helper methods
+    // Safe helper methods that maintain collection integrity
     public void addTimetableEntry(TimetableEntry entry) {
-        timetableEntries.add(entry);
+        if (timetableEntries == null) {
+            timetableEntries = new ArrayList<>();
+        }
+        if (entry != null && !timetableEntries.contains(entry)) {
+            timetableEntries.add(entry);
+        }
     }
     
     public void removeTimetableEntry(TimetableEntry entry) {
-        timetableEntries.remove(entry);
+        if (timetableEntries != null && entry != null) {
+            timetableEntries.remove(entry);
+        }
     }
-    // Add getters and setters
-public String getVerificationCode() {
-    return verificationCode;
-}
+    
+    public void clearTimetableEntries() {
+        if (timetableEntries != null) {
+            timetableEntries.clear();
+        }
+    }
+    
+    // Add getters and setters for verification code
+    public String getVerificationCode() {
+        return verificationCode;
+    }
 
-public void setVerificationCode(String verificationCode) {
-    this.verificationCode = verificationCode;
-}
+    public void setVerificationCode(String verificationCode) {
+        this.verificationCode = verificationCode;
+    }
 
-public Date getVerificationCodeExpiry() {
-    return verificationCodeExpiry;
-}
+    public Date getVerificationCodeExpiry() {
+        return verificationCodeExpiry;
+    }
 
-public void setVerificationCodeExpiry(Date verificationCodeExpiry) {
-    this.verificationCodeExpiry = verificationCodeExpiry;
-}
+    public void setVerificationCodeExpiry(Date verificationCodeExpiry) {
+        this.verificationCodeExpiry = verificationCodeExpiry;
+    }
 }

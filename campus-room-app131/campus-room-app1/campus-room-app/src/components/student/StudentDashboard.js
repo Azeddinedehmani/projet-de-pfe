@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import useProfileLoader from '../../hooks/useProfileLoader'; // Add this import
+import useProfileLoader from '../../hooks/useProfileLoader';
 import RoomReservation from './RoomReservation';
 import StudentMyReservations from './StudentMyReservations';
 import Profile from '../common/Profile';
 import NotificationPanel from '../common/NotificationPanel';
 import NotificationService from '../../services/NotificationService';
 import StudentTimetable from './StudentTimetable';
+import LocalImage from '../common/LocalImage'; // Import LocalImage component
 import { API } from '../../api';
 
-import '../../styles/dashboard.css';
-import '../../styles/notifications.css';
+import '../../styles/unifié.css';
 
 // Component imports
 import SideNav from '../common/SideNav';
@@ -536,7 +536,7 @@ const StudentDashboard = () => {
       {/* Welcome Section */}
       <div className="welcome-section">
         <h2>Welcome, {currentUser?.firstName || 'Student'}!</h2>
-        <p>Reserve study rooms and manage your academic schedule here.</p>
+        <p></p>
         {error && (
           <div className="alert alert-warning">
             <i className="fas fa-exclamation-triangle"></i>
@@ -583,7 +583,6 @@ const StudentDashboard = () => {
         />
       </div>
       
-      {/* Rest of the dashboard content remains the same... */}
       {/* Upcoming Reservations Section */}
       <div className="section">
         <div className="section-header">
@@ -699,7 +698,7 @@ const StudentDashboard = () => {
         )}
       </div>
       
-      {/* Available Study Spaces Section */}
+      {/* Available Study Spaces Section - UPDATED WITH PROPER IMAGE DISPLAY */}
       <div className="section">
         <div className="section-header">
           <h2>Available Study Spaces</h2>
@@ -721,11 +720,16 @@ const StudentDashboard = () => {
           <div className="rooms-grid" id="available-rooms">
             {studyRooms.slice(0, 6).map(room => (
               <div className="room-card" key={room.id}>
-                <div 
-                  className="room-image" 
-                  style={{ backgroundImage: `url(${room.image || '/images/classroom-default.jpg'})` }}
-                >
-                  <span className="status-badge status-available">Available</span>
+                <div className="room-image-container">
+                  <LocalImage
+                    src={room.image || '/images/classroom-default.jpg'}
+                    alt={room.roomNumber || room.name || 'Classroom'}
+                    fallbackSrc="/images/classroom-default.jpg"
+                    className="room-image"
+                  />
+                  <div className="room-image-overlay">
+                    <span className="status-badge status-available">Available</span>
+                  </div>
                 </div>
                 <div className="room-details">
                   <h3>{room.roomNumber || room.name}</h3>
@@ -789,14 +793,11 @@ const StudentDashboard = () => {
                 title="View notifications"
               >
                 <i className="fas fa-bell"></i>
-                {notificationCount > 0 && (
-                  <span className="notification-count">{notificationCount}</span>
-                )}
+               {showNotifications && (  // <-- We'll change this
+  <div className="notifications-container">
+    <NotificationPanel />
+  </div>)}
               </button>
-            </div>
-            <div className="user-info">
-              <span className="role-badge">Student</span>
-              <span>{currentUser?.firstName} {currentUser?.lastName}</span>
             </div>
           </div>
         </div>

@@ -7,6 +7,7 @@ import LocalImageUploader from './LocalImageUploader';
 import LocalImageService from '../../utils/LocalImageService';
 import '../../styles/profile-styles.css';
 
+
 const Profile = () => {
   const navigate = useNavigate();
   const { currentUser, updateCurrentUser, logout } = useAuth();
@@ -758,12 +759,7 @@ const Profile = () => {
                 >
                   <i className="fas fa-shield-alt"></i> Security
                 </div>
-                <div 
-                  className={`profile-tab ${activeTab === 'preferences' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('preferences')}
-                >
-                  <i className="fas fa-cog"></i> Preferences
-                </div>
+               
               </div>
               
               <div className={`profile-tab-content ${activeTab === 'personal' ? 'active' : ''}`}>
@@ -855,72 +851,17 @@ const Profile = () => {
                       </button>
                     </div>
                     
-                    <div className="profile-item">
-                      <div className="profile-label">
-                        <i className="fas fa-shield-alt"></i> Two-Factor Authentication
-                      </div>
-                      <div className="profile-value">
-                        <span className="status-badge status-inactive">Not Enabled</span>
-                      </div>
-                    </div>
+                   
                     
-                    <div className="profile-item">
-                      <div className="profile-label">
-                        <i className="fas fa-history"></i> Last Login
-                      </div>
-                      <div className="profile-value">
-                        {currentUser?.lastLogin ? new Date(currentUser.lastLogin).toLocaleString() : 'N/A'}
-                      </div>
-                    </div>
                     
-                    <div className="profile-item">
-                      <div className="profile-label">
-                        <i className="fas fa-clock"></i> Last Updated
-                      </div>
-                      <div className="profile-value">
-                        {currentUser?.lastUpdated ? new Date(currentUser.lastUpdated).toLocaleString() : 'N/A'}
-                      </div>
-                    </div>
+                    
+                   
+                   
                   </div>
                 </div>
               </div>
               
-              <div className={`profile-tab-content ${activeTab === 'preferences' ? 'active' : ''}`}>
-                <div className="profile-section">
-                  <div className="profile-section-header">
-                    <h3 className="profile-section-title">
-                      <i className="fas fa-bell"></i> Notification Preferences
-                    </h3>
-                  </div>
-                  
-                  <div className="profile-details">
-                    <div className="profile-item">
-                      <div className="profile-label">
-                        <i className="fas fa-envelope"></i> Email Notifications
-                      </div>
-                      <div className="profile-value">
-                        <span className="status-badge status-approved">Enabled</span>
-                      </div>
-                    </div>
-                    
-                    <div className="profile-item">
-                      <div className="profile-label">
-                        <i className="fas fa-mobile-alt"></i> Mobile Notifications
-                      </div>
-                      <div className="profile-value">
-                        <span className="status-badge status-inactive">Not Configured</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="detail-note">
-                    <div className="detail-note-content">
-                      <strong>Note:</strong> Notification preferences can be configured in the system settings.
-                      Contact your administrator for more information.
-                    </div>
-                  </div>
-                </div>
-              </div>
+
             </>
           ) : (
             <form className="profile-form" onSubmit={handleSubmit}>
@@ -1004,18 +945,6 @@ const Profile = () => {
                 </div>
                 
                 <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="department">Department</label>
-                    <input 
-                      type="text" 
-                      id="department" 
-                      name="department"
-                      className="form-input"
-                      value={formData.department}
-                      onChange={handleChange}
-                      disabled={loading}
-                    />
-                  </div>
                   
                   <div className="form-group">
                     <label className="form-label" htmlFor="phone">Phone Number</label>

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
+import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping("/users")
@@ -46,8 +47,13 @@ public class UserController {
     }
     
     @PostMapping
-    public ResponseEntity<UserDTO> createUser(@RequestBody Map<String, Object> userMap) {
-        UserDTO userDTO = new UserDTO();
+public ResponseEntity<UserDTO> createUser(@RequestBody Map<String, Object> userMap) {
+    // Prevent creating admin users
+    String role = (String) userMap.get("role");
+    if ("admin".equalsIgnoreCase(role)) {
+        return ResponseEntity.badRequest().body(null); // or throw exception
+    }
+    UserDTO userDTO = new UserDTO();
         userDTO.setFirstName((String) userMap.get("firstName"));
         userDTO.setLastName((String) userMap.get("lastName"));
         userDTO.setEmail((String) userMap.get("email"));
@@ -120,24 +126,69 @@ public class UserController {
         return ResponseEntity.ok(userService.updateUser(id, userDTO));
     }
     
-  @PutMapping("/{id}/status")
+// Update the changeUserStatus method in UserController.java:
+
+@PutMapping("/{id}/status")
 public ResponseEntity<AuthResponse> changeUserStatus(@PathVariable Long id, @RequestBody Map<String, String> statusMap) {
-    String status = statusMap.get("status");
-    
-    if (status == null || (!status.equals("active") && !status.equals("inactive"))) {
-        return ResponseEntity.badRequest().body(
+    try {
+        // Check if user exists and get user details
+        UserDTO user = userService.getUserById(id);
+        if (user == null) {
+            return ResponseEntity.badRequest().body(
+                AuthResponse.builder()
+                    .success(false)
+                    .message("User not found with ID: " + id)
+                    .build()
+            );
+        }
+        
+        // Check if user is admin before changing status
+        if ("admin".equalsIgnoreCase(user.getRole())) {
+            return ResponseEntity.badRequest().body(
+                AuthResponse.builder()
+                    .success(false)
+                    .message("Cannot change status of administrator users.")
+                    .build()
+            );
+        }
+        
+        String status = statusMap.get("status");
+        
+        // Validate status value
+        if (status == null || (!status.equals("active") && !status.equals("inactive"))) {
+            return ResponseEntity.badRequest().body(
+                AuthResponse.builder()
+                    .success(false)
+                    .message("Invalid status value. Use 'active' or 'inactive'.")
+                    .build()
+            );
+        }
+        
+        // Log the status change attempt
+        System.out.println("Changing status of user " + id + " from " + user.getStatus() + " to " + status);
+        
+        // Call the service to update the user status
+        AuthResponse response = authService.changeUserStatus(id, status);
+        
+        // Log the result
+        if (response.isSuccess()) {
+            System.out.println("Successfully changed user " + id + " status to " + status);
+        } else {
+            System.err.println("Failed to change user " + id + " status: " + response.getMessage());
+        }
+        
+        return ResponseEntity.ok(response);
+    } catch (Exception e) {
+        System.err.println("Error changing user status: " + e.getMessage());
+        e.printStackTrace();
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
             AuthResponse.builder()
                 .success(false)
-                .message("Invalid status value. Use 'active' or 'inactive'.")
+                .message("Internal server error: " + e.getMessage())
                 .build()
         );
     }
-    
-    // Call the service to update the user status
-    AuthResponse response = authService.changeUserStatus(id, status);
-    return ResponseEntity.ok(response);
 }
-    
     @PutMapping("/{id}/password")
     public ResponseEntity<Map<String, Boolean>> resetPassword(@PathVariable Long id, @RequestBody Map<String, String> passwordMap) {
         String password = passwordMap.get("password");
@@ -173,10 +224,54 @@ public ResponseEntity<AuthResponse> changeUserStatus(@PathVariable Long id, @Req
         return ResponseEntity.ok(userDTO.getTimetableEntries());
     }
     
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Map<String, Boolean>> deleteUser(@PathVariable Long id) {
+  
+@DeleteMapping("/{id}")
+public ResponseEntity<Map<String, Object>> deleteUser(@PathVariable Long id) {
+    try {
+        // Check if user exists and get user details first
+        UserDTO user;
+        try {
+            user = userService.getUserById(id);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "deleted", false,
+                "success", false,
+                "message", "User not found with ID: " + id
+            ));
+        }
+        
+        // Check if user is admin before deleting
+        if ("admin".equalsIgnoreCase(user.getRole())) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "deleted", false,
+                "success", false,
+                "message", "Cannot delete administrator users."
+            ));
+        }
+        
+        // Log deletion attempt
+        System.out.println("Attempting to delete user: " + id + " (" + user.getFirstName() + " " + user.getLastName() + ")");
+        
+        // Perform the deletion
         userService.deleteUser(id);
-        return ResponseEntity.ok(Map.of("deleted", true));
+        
+        System.out.println("Successfully deleted user: " + id);
+        
+        return ResponseEntity.ok(Map.of(
+            "deleted", true,
+            "success", true,
+            "message", "User deleted successfully"
+        ));
+    } catch (Exception e) {
+        System.err.println("Error deleting user " + id + ": " + e.getMessage());
+        e.printStackTrace();
+        
+        // Return appropriate error response
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+            "deleted", false,
+            "success", false,
+            "message", "Failed to delete user: " + e.getMessage()
+        ));
     }
-    
+}
 }

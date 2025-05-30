@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import '../../styles/auth.css';
+import '../../styles/unifié.css';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -69,7 +69,7 @@ const Login = () => {
     <div className="landing-container">
       <div className="branding">
         <div className="logo-container">
-          <img src="/image/pfe-logo.png" alt="Campus Room Logo" className="logo" />
+          <img src="/image/logo.png" alt="Campus Room Logo" className="logo" />
           <h1>Campus<span>Room</span></h1>
         </div>
         <p className="tagline">Smart Classroom Management System</p>
@@ -117,14 +117,7 @@ const Login = () => {
             </div>
             
             <div className="form-options">
-              <label className="remember">
-                <input 
-                  type="checkbox" 
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
-                <span>Remember me</span>
-              </label>
+            
               <Link to="/forgot-password" className="forgot-link">Forgot password?</Link>
             </div>
             

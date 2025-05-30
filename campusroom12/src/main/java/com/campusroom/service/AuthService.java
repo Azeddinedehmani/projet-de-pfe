@@ -297,28 +297,71 @@ public AuthResponse forgotPassword(ForgotPasswordRequest request) {
         }
     }
     
-    @Transactional
+// Update the changeUserStatus method in AuthService.java:
+
+@Transactional
 public AuthResponse changeUserStatus(Long userId, String status) {
-    return userRepository.findById(userId)
-            .map(user -> {
-                user.setStatus(status);
-                userRepository.save(user);
-                
-                String message = status.equals("active") 
-                    ? "L'utilisateur a été activé avec succès" 
-                    : "L'utilisateur a été désactivé avec succès";
-                
-                return AuthResponse.builder()
-                        .success(true)
-                        .message(message)
-                        .build();
-            })
-            .orElse(AuthResponse.builder()
+    try {
+        Optional<User> userOptional = userRepository.findById(userId);
+        
+        if (!userOptional.isPresent()) {
+            return AuthResponse.builder()
                     .success(false)
-                    .message("Utilisateur non trouvé")
-                    .build());
+                    .message("User not found with ID: " + userId)
+                    .build();
+        }
+        
+        User user = userOptional.get();
+        
+        // Check if user is admin before changing status
+        if (user.getRole() == User.Role.ADMIN) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Cannot change status of administrator users.")
+                    .build();
+        }
+        
+        // Validate status
+        if (!"active".equals(status) && !"inactive".equals(status)) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Invalid status. Use 'active' or 'inactive'.")
+                    .build();
+        }
+        
+        // Store old status for logging
+        String oldStatus = user.getStatus();
+        
+        // Update user status
+        user.setStatus(status);
+        User updatedUser = userRepository.save(user);
+        
+        // Log the change
+        logger.info("User status changed - ID: {}, Email: {}, From: {} To: {}", 
+                   userId, user.getEmail(), oldStatus, status);
+        
+        String message = status.equals("active") 
+            ? "User activated successfully" 
+            : "User deactivated successfully";
+        
+        return AuthResponse.builder()
+                .success(true)
+                .message(message)
+                .id(updatedUser.getId())
+                .firstName(updatedUser.getFirstName())
+                .lastName(updatedUser.getLastName())
+                .email(updatedUser.getEmail())
+                .role(updatedUser.getRole().name())
+                .build();
+        
+    } catch (Exception e) {
+        logger.error("Error changing user status for user ID {}: {}", userId, e.getMessage(), e);
+        return AuthResponse.builder()
+                .success(false)
+                .message("Failed to change user status: " + e.getMessage())
+                .build();
+    }
 }
-    
     
         // Add this method to generate verification code
 private String generateVerificationCode() {

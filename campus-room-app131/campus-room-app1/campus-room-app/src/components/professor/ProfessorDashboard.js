@@ -7,8 +7,7 @@ import ProfessorTimetable from './ProfessorTimetable';
 import MyReservations from './MyReservations';
 import NotificationService from '../../services/NotificationService';
 import NotificationPanel from '../common/NotificationPanel';
-import '../../styles/dashboard.css';
-import '../../styles/notifications.css';
+import '../../styles/unifié.css';
 import Profile from '../common/Profile';
 import { API } from '../../api';
 
@@ -464,7 +463,7 @@ const ProfessorDashboard = () => {
         </div>
         <div className="welcome-actions">
           <button 
-            className="btn-secondary"
+            className="btn-secondary refresh-btn"
             onClick={handleRefreshData}
             disabled={loading}
             title="Refresh dashboard data"
@@ -685,9 +684,11 @@ const ProfessorDashboard = () => {
                 title="View notifications"
               >
                 <i className="fas fa-bell"></i>
-                {notificationCount > 0 && (
-                  <span className="header-notification-count">{notificationCount}</span>
-                )}
+                  <i className="fas fa-bell"></i>
+               {showNotifications && (  // <-- We'll change this
+  <div className="notifications-container">
+    <NotificationPanel />
+  </div>)}
               </button>
             </div>
             <div className="user-info">

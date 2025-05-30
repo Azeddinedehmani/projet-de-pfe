@@ -1,5 +1,5 @@
 import React from 'react';
-import '../../styles/table.css';
+import '../../styles/unifié.css';
 
 /**
  * Reusable Table Component

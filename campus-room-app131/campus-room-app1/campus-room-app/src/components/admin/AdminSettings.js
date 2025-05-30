@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SettingsService from '../../services/SettingsService';
-import '../../styles/dashboard.css';
+import '../../styles/unifié.css';
 
 const AdminSettings = () => {
   // States for loading and errors
@@ -300,15 +300,7 @@ const AdminSettings = () => {
         <form className="settings-form">
           <div className="form-group checkbox-group">
             <div className="checkbox-item">
-              <input 
-                type="checkbox" 
-                id="emailNotifications" 
-                name="emailNotifications"
-                checked={notificationSettings.emailNotifications}
-                onChange={handleNotificationChange}
-              />
-              <label htmlFor="emailNotifications">Enable email notifications</label>
-            </div>
+               </div>
             
             <div className="checkbox-item">
               <input 
@@ -351,34 +343,6 @@ const AdminSettings = () => {
                 Notify on reservation rejection
               </label>
             </div>
-            
-            <div className="checkbox-item">
-              <input 
-                type="checkbox" 
-                id="newUserRegistered" 
-                name="newUserRegistered"
-                checked={notificationSettings.newUserRegistered}
-                onChange={handleNotificationChange}
-                disabled={!notificationSettings.emailNotifications}
-                />
-                <label htmlFor="systemUpdates" className={!notificationSettings.emailNotifications ? 'disabled-label' : ''}>
-                  Notify on system updates
-                </label>
-              </div>
-              
-              <div className="checkbox-item">
-                <input 
-                  type="checkbox" 
-                  id="dailyDigest" 
-                  name="dailyDigest"
-                  checked={notificationSettings.dailyDigest}
-                  onChange={handleNotificationChange}
-                  disabled={!notificationSettings.emailNotifications}
-                />
-                <label htmlFor="dailyDigest" className={!notificationSettings.emailNotifications ? 'disabled-label' : ''}>
-                  Send daily activity digest
-                </label>
-              </div>
             </div>
           </form>
         </div>

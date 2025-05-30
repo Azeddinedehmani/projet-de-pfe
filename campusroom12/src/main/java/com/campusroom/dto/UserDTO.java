@@ -1,6 +1,5 @@
 package com.campusroom.dto;
 
-import java.util.Date;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -11,7 +10,7 @@ public class UserDTO {
     private String email;
     private String role;
     private String status;
-    private Date lastLogin;
+    // private Date lastLogin; SUPPRIMER CETTE LIGNE
     private List<TimetableEntryDTO> timetableEntries = new ArrayList<>();
 
     // Constructors
@@ -19,15 +18,14 @@ public class UserDTO {
     }
 
     public UserDTO(Long id, String firstName, String lastName, String email,
-                   String role, String status, Date lastLogin,
-                   List<TimetableEntryDTO> timetableEntries) {
+                   String role, String status, List<TimetableEntryDTO> timetableEntries) {
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
         this.role = role;
         this.status = status;
-        this.lastLogin = lastLogin;
+        // this.lastLogin = lastLogin; SUPPRIMER CETTE LIGNE
         this.timetableEntries = timetableEntries != null ? timetableEntries : new ArrayList<>();
     }
 
@@ -44,7 +42,7 @@ public class UserDTO {
         private String email;
         private String role;
         private String status;
-        private Date lastLogin;
+        // private Date lastLogin; SUPPRIMER CETTE LIGNE
         private List<TimetableEntryDTO> timetableEntries = new ArrayList<>();
 
         public Builder id(Long id) {
@@ -77,10 +75,11 @@ public class UserDTO {
             return this;
         }
 
-        public Builder lastLogin(Date lastLogin) {
-            this.lastLogin = lastLogin;
-            return this;
-        }
+        // SUPPRIMER CETTE MÉTHODE
+        // public Builder lastLogin(Date lastLogin) {
+        //     this.lastLogin = lastLogin;
+        //     return this;
+        // }
         
         public Builder timetableEntries(List<TimetableEntryDTO> timetableEntries) {
             this.timetableEntries = timetableEntries;
@@ -88,7 +87,7 @@ public class UserDTO {
         }
 
         public UserDTO build() {
-            return new UserDTO(id, firstName, lastName, email, role, status, lastLogin, timetableEntries);
+            return new UserDTO(id, firstName, lastName, email, role, status, timetableEntries);
         }
     }
 
@@ -99,7 +98,7 @@ public class UserDTO {
     public String getEmail() { return email; }
     public String getRole() { return role; }
     public String getStatus() { return status; }
-    public Date getLastLogin() { return lastLogin; }
+    // public Date getLastLogin() { return lastLogin; } SUPPRIMER CETTE LIGNE
     public List<TimetableEntryDTO> getTimetableEntries() { return timetableEntries; }
 
     // Setters
@@ -109,7 +108,7 @@ public class UserDTO {
     public void setEmail(String email) { this.email = email; }
     public void setRole(String role) { this.role = role; }
     public void setStatus(String status) { this.status = status; }
-    public void setLastLogin(Date lastLogin) { this.lastLogin = lastLogin; }
+    // public void setLastLogin(Date lastLogin) { this.lastLogin = lastLogin; } SUPPRIMER CETTE LIGNE
     public void setTimetableEntries(List<TimetableEntryDTO> timetableEntries) { 
         this.timetableEntries = timetableEntries != null ? timetableEntries : new ArrayList<>(); 
     }

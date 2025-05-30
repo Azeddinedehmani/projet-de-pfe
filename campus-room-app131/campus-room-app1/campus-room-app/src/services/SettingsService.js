@@ -151,13 +151,6 @@ class SettingsService {
       autoApproveAdmin: true,
       autoApproveProfessor: false,
       autoApproveStudent: false,
-      emailNotifications: true,
-      reservationCreated: true,
-      reservationApproved: true,
-      reservationRejected: true,
-      newUserRegistered: true,
-      systemUpdates: true,
-      dailyDigest: false,
       maxDaysInAdvance: 30,
       minTimeBeforeReservation: 1,
       maxHoursPerReservation: 4,
@@ -201,38 +194,6 @@ class SettingsService {
       maxHoursPerReservation: settings.maxHoursPerReservation,
       maxReservationsPerWeek: settings.maxReservationsPerWeek
     };
-  }
-
-  /**
-   * Check if email notifications are enabled for a specific event
-   * @param {string} eventType The event type
-   * @returns {Promise<boolean>} Whether notifications are enabled
-   */
-  async areNotificationsEnabled(eventType) {
-    const settings = await this.getSettings();
-    
-    // First check if email notifications are enabled at all
-    if (!settings.emailNotifications) {
-      return false;
-    }
-    
-    // Then check for specific event types
-    switch (eventType) {
-      case 'reservationCreated':
-        return settings.reservationCreated;
-      case 'reservationApproved':
-        return settings.reservationApproved;
-      case 'reservationRejected':
-        return settings.reservationRejected;
-      case 'newUserRegistered':
-        return settings.newUserRegistered;
-      case 'systemUpdates':
-        return settings.systemUpdates;
-      case 'dailyDigest':
-        return settings.dailyDigest;
-      default:
-        return false;
-    }
   }
 }
 

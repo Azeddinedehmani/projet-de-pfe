@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import '../../styles/dashboard.css';
+
 import API from '../../api';
-import ReservationEmailService from '../../services/ReservationEmailService';
+import NotificationService from '../../services/NotificationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import LocalImage from '../common/LocalImage';
 import LocalImageService from '../../utils/LocalImageService';
+import '../../styles/unifié.css';
 
 const StudentClassroomReservation = ({ fullPage = false }) => {
   const { currentUser } = useAuth();
@@ -39,20 +40,6 @@ const StudentClassroomReservation = ({ fullPage = false }) => {
   // Load all classrooms when component mounts
   useEffect(() => {
     fetchAllClassrooms();
-    
-    // Process any queued emails that couldn't be sent previously
-    const processQueuedEmails = async () => {
-      try {
-        const result = await ReservationEmailService.processEmailQueue();
-        if (result.success > 0) {
-          console.log(`Processed ${result.success} queued emails`);
-        }
-      } catch (error) {
-        console.error('Error processing email queue:', error);
-      }
-    };
-    
-    processQueuedEmails();
     
     // Check if we're in edit mode and load reservation data
     if (isEditMode) {
@@ -409,7 +396,7 @@ const StudentClassroomReservation = ({ fullPage = false }) => {
         const response = await API.studentAPI.requestClassroomReservation(requestBody);
         console.log('Create reservation success response:', response.data);
   
-        // Send email notification to admin for new reservations only (not updates)
+        // Create in-app notification for admin about new reservation
         try {
           const reservationData = {
             id: response.data?.reservation?.id || response.data?.id || 'NEW_REQUEST',
@@ -423,11 +410,18 @@ const StudentClassroomReservation = ({ fullPage = false }) => {
             userEmail: currentUser?.email || ''
           };
           
-          await ReservationEmailService.notifyAdminAboutNewRequest(reservationData);
-          console.log('Admin notification email sent successfully');
-        } catch (emailError) {
-          console.error('Error sending admin notification email:', emailError);
-          // Continue process even if email fails
+          // Create notification for admins (you might need to get admin user IDs)
+          await NotificationService.createNotification(
+            'admin', // This might need to be updated with actual admin user ID
+            'New Reservation Request',
+            `New reservation request from ${currentUser?.name || 'Student'} for ${selectedClassroom.roomNumber} on ${formData.date}`,
+            'fas fa-calendar-plus',
+            'blue'
+          );
+          console.log('Admin notification created successfully');
+        } catch (notificationError) {
+          console.error('Error creating admin notification:', notificationError);
+          // Continue process even if notification fails
         }
       }
   
@@ -455,7 +449,7 @@ const StudentClassroomReservation = ({ fullPage = false }) => {
       
       const actionType = isEditMode ? 'updated' : 'submitted';
       setMessage({ 
-        text: `Your reservation request has been ${actionType} successfully and is pending approval. A confirmation email will be sent once the request is processed.`, 
+        text: `Your reservation request has been ${actionType} successfully and is pending approval. You will be notified once the request is processed.`, 
         type: 'success' 
       });
       
@@ -765,7 +759,7 @@ const StudentClassroomReservation = ({ fullPage = false }) => {
         
         <div className="form-info-box">
           <p><strong>Note:</strong> Once submitted, an administrator will review your request. 
-          You will receive an email notification when your request is approved or rejected.</p>
+          You will receive a notification when your request is approved or rejected.</p>
         </div>
         
         <button 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import NotificationService from '../../services/NotificationService';
-import '../../styles/notifications.css';
+import '../../styles/unifié.css';
 
 const NotificationPanel = ({ userRole }) => {
   const [notifications, setNotifications] = useState([]);

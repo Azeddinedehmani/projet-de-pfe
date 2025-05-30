@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { API } from '../../api';
-import '../../styles/dashboard.css';
+import '../../styles/unifié.css';
+
 
 const ClassGroupManagement = () => {
   // Original states
@@ -2418,9 +2419,9 @@ for (let hour = 8; hour < 18; hour++) {
           </div>
         </div>
         
-        {/* Add Branch Modal */}
+        {/* Add Branch Modal - CORRIGÉE */}
         {showAddBranchModal && (
-          <div className="modal">
+          <div className="modal show">
             <div className="modal-content">
               <div className="modal-header">
                 <h2>Create New Branch</h2>
@@ -2458,22 +2459,32 @@ for (let hour = 8; hour < 18; hour++) {
                     />
                   </div>
                   
-                  <button 
-                    type="submit" 
-                    className="btn-primary"
-                    disabled={loading}
-                  >
-                    {loading ? 'Creating...' : 'Create Branch'}
-                  </button>
+                  <div className="modal-footer">
+                    <button 
+                      type="button" 
+                      className="btn-secondary"
+                      onClick={() => setShowAddBranchModal(false)}
+                      disabled={loading}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="btn-primary"
+                      disabled={loading}
+                    >
+                      {loading ? 'Creating...' : 'Create Branch'}
+                    </button>
+                  </div>
                 </form>
               </div>
             </div>
           </div>
         )}
         
-        {/* Edit Branch Modal */}
+        {/* Edit Branch Modal - CORRIGÉE */}
         {showEditBranchModal && selectedBranch && (
-          <div className="modal">
+          <div className="modal show">
             <div className="modal-content">
               <div className="modal-header">
                 <h2>Edit Branch</h2>
@@ -2511,22 +2522,32 @@ for (let hour = 8; hour < 18; hour++) {
                     />
                   </div>
                   
-                  <button 
-                    type="submit" 
-                    className="btn-primary"
-                    disabled={loading}
-                  >
-                    {loading ? 'Updating...' : 'Update Branch'}
-                  </button>
+                  <div className="modal-footer">
+                    <button 
+                      type="button" 
+                      className="btn-secondary"
+                      onClick={() => setShowEditBranchModal(false)}
+                      disabled={loading}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="btn-primary"
+                      disabled={loading}
+                    >
+                      {loading ? 'Updating...' : 'Update Branch'}
+                    </button>
+                  </div>
                 </form>
               </div>
             </div>
           </div>
         )}
         
-        {/* Add Class Group Modal */}
+        {/* Add Class Group Modal - CORRIGÉE */}
         {showAddModal && (
-          <div className="modal">
+          <div className="modal show">
             <div className="modal-content modal-lg">
               <div className="modal-header">
                 <h2>Create New Class Group{selectedBranch ? ` in ${selectedBranch.name}` : ''}</h2>
@@ -2650,22 +2671,32 @@ for (let hour = 8; hour < 18; hour++) {
                     </div>
                   )}
                   
-                  <button 
-                    type="submit" 
-                    className="btn-primary"
-                    disabled={loading}
-                  >
-                    {loading ? 'Creating...' : 'Create Class Group'}
-                  </button>
+                  <div className="modal-footer">
+                    <button 
+                      type="button" 
+                      className="btn-secondary"
+                      onClick={() => setShowAddModal(false)}
+                      disabled={loading}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="btn-primary"
+                      disabled={loading}
+                    >
+                      {loading ? 'Creating...' : 'Create Class Group'}
+                    </button>
+                  </div>
                 </form>
               </div>
             </div>
           </div>
         )}
         
-        {/* Edit Class Group Modal */}
+        {/* Edit Class Group Modal - CORRIGÉE */}
         {showEditModal && selectedClassGroup && (
-          <div className="modal">
+          <div className="modal show">
             <div className="modal-content modal-lg">
               <div className="modal-header">
                 <h2>Edit Class Group</h2>
@@ -2787,22 +2818,32 @@ for (let hour = 8; hour < 18; hour++) {
                     </select>
                   </div>
                   
-                  <button 
-                    type="submit" 
-                    className="btn-primary"
-                    disabled={loading}
-                  >
-                    {loading ? 'Updating...' : 'Update Class Group'}
-                  </button>
+                  <div className="modal-footer">
+                    <button 
+                      type="button" 
+                      className="btn-secondary"
+                      onClick={() => setShowEditModal(false)}
+                      disabled={loading}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="btn-primary"
+                      disabled={loading}
+                    >
+                      {loading ? 'Updating...' : 'Update Class Group'}
+                    </button>
+                  </div>
                 </form>
               </div>
             </div>
           </div>
         )}
         
-        {/* Branch Students Modal */}
+        {/* Branch Students Modal - CORRIGÉE */}
         {showBranchStudentsModal && selectedBranchForStudents && (
-          <div className="modal">
+          <div className="modal show">
             <div className="modal-content modal-lg">
               <div className="modal-header">
                 <h2>Manage Students - {selectedBranchForStudents.name} Branch</h2>
@@ -2945,9 +2986,9 @@ for (let hour = 8; hour < 18; hour++) {
           </div>
         )}
         
-        {/* Manage Timetable Modal */}
+        {/* Manage Timetable Modal - CORRIGÉE */}
         {showTimetableModal && selectedClassGroup && (
-          <div className="modal">
+          <div className="modal show">
             <div className="modal-content modal-lg">
               <div className="modal-header">
                 <h2>Manage Class Timetable - {selectedClassGroup.courseCode}: {selectedClassGroup.name}</h2>

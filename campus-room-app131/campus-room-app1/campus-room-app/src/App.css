@@ -5,7 +5,4 @@
 }
 
 /* Import all other stylesheets */
-@import './styles/base.css';
-@import './styles/auth.css';
-@import './styles/dashboard.css';
-@import './styles/modal.css';
+@import './styles/unifié.css';

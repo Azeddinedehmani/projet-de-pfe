@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import API from '../../api';
-import '../../styles/student-reservation.css';
+import '../../styles/unifié.css';
+
 
 const StudentMyReservations = () => {
   const { currentUser } = useAuth();

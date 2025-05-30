@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
-import '../../styles/student-schedule.css'
+import '../../styles/unifié.css';
+
 const StudentSchedule = () => {
   const [selectedDate, setSelectedDate] = useState('');
   const [viewMode, setViewMode] = useState('day');

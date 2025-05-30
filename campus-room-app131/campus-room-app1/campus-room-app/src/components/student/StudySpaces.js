@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../common/Modal';
-import '../../styles/dashboard.css';
+import '../../styles/unifié.css';
+
 
 const StudySpaces = () => {
   const { currentUser } = useAuth();

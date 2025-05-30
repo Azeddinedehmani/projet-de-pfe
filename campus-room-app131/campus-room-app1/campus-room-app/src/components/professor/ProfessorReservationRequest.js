@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { professorAPI, roomAPI } from '../../api';
 import Modal from '../common/Modal';
-import '../../styles/reservation.css';
+import '../../styles/unifié.css';
 
 const ProfessorReservationRequest = () => {
   const [classrooms, setClassrooms] = useState([]);

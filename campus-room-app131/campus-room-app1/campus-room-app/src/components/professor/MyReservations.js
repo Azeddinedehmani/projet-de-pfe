@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import API from '../../api';
-import '../../styles/student-reservation.css';
+import '../../styles/unifié.css';
 import axios from 'axios';
 const MyReservations = () => {
   const { currentUser } = useAuth();

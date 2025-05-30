@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Table from '../common/Table';
 import Modal from '../common/Modal';
-import '../../styles/dashboard.css';
+import '../../styles/unifié.css';
 import API from '../../api';
-import ReservationEmailService from '../../services/ReservationEmailService';
+import NotificationService from '../../services/NotificationService';
 
 const AdminDemands = () => {
   const [pendingDemands, setPendingDemands] = useState([]);
@@ -21,20 +21,6 @@ const AdminDemands = () => {
   // Load pending demands on component mount
   useEffect(() => {
     fetchPendingDemands();
-    
-    // Check for any queued emails that need to be sent
-    const processQueuedEmails = async () => {
-      try {
-        const result = await ReservationEmailService.processEmailQueue();
-        if (result.success > 0) {
-          console.log(`Processed ${result.success} queued emails`);
-        }
-      } catch (error) {
-        console.error('Error processing email queue:', error);
-      }
-    };
-    
-    processQueuedEmails();
   }, []);
   
   // Fetch pending demands from the API
@@ -155,18 +141,20 @@ const AdminDemands = () => {
       
       console.log("Reservation approved:", response.data);
       
-      // Send email notification to user
+      // Create in-app notification for user
       const approvedDemand = pendingDemands.find(demand => demand.id === id);
       if (approvedDemand) {
         try {
-          await ReservationEmailService.notifyUserAboutStatusUpdate(
-            approvedDemand, 
-            'APPROVED'
+          await NotificationService.createNotification(
+            approvedDemand.userId || approvedDemand.reservedBy,
+            'Reservation Approved',
+            `Your reservation for ${approvedDemand.classroom} on ${approvedDemand.date} has been approved.`,
+            'fas fa-check-circle',
+            'green'
           );
-          console.log("Approval notification email sent to user");
-        } catch (emailError) {
-          console.error("Error sending approval email:", emailError);
-          // Continue with the process even if email fails
+          console.log("In-app notification created for user");
+        } catch (notificationError) {
+          console.error("Error creating notification:", notificationError);
         }
       }
       
@@ -240,17 +228,18 @@ const AdminDemands = () => {
       
       console.log("Reservation rejected:", response.data);
       
-      // Send email notification to user with rejection reason
+      // Create in-app notification for user with rejection reason
       try {
-        await ReservationEmailService.notifyUserAboutStatusUpdate(
-          selectedDemand, 
-          'REJECTED',
-          rejectReason
+        await NotificationService.createNotification(
+          selectedDemand.userId || selectedDemand.reservedBy,
+          'Reservation Rejected',
+          `Your reservation for ${selectedDemand.classroom} on ${selectedDemand.date} has been rejected. Reason: ${rejectReason}`,
+          'fas fa-times-circle',
+          'red'
         );
-        console.log("Rejection notification email sent to user");
-      } catch (emailError) {
-        console.error("Error sending rejection email:", emailError);
-        // Continue with the process even if email fails
+        console.log("Rejection notification created for user");
+      } catch (notificationError) {
+        console.error("Error creating rejection notification:", notificationError);
       }
       
       // Remove the rejected demand from the list
@@ -522,7 +511,7 @@ const AdminDemands = () => {
                 required
               ></textarea>
               <small className="form-hint">
-                This reason will be included in the notification email sent to the user.
+                This reason will be included in the notification sent to the user.
               </small>
             </div>
             

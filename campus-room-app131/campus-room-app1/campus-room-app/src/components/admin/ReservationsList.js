@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import '../../styles/dashboard.css';
+import '../../styles/unifié.css';
 import API from '../../api';
-import ReservationEmailService from '../../services/ReservationEmailService';
+import NotificationService from '../../services/NotificationService';
 import Modal from '../common/Modal';
 
 const ReservationsList = () => {
@@ -22,20 +22,6 @@ const ReservationsList = () => {
   // Fetch all reservations on component mount
   useEffect(() => {
     fetchReservations();
-    
-    // Check for any queued emails that need to be sent
-    const processQueuedEmails = async () => {
-      try {
-        const result = await ReservationEmailService.processEmailQueue();
-        if (result.success > 0) {
-          console.log(`Processed ${result.success} queued emails`);
-        }
-      } catch (error) {
-        console.error('Error processing email queue:', error);
-      }
-    };
-    
-    processQueuedEmails();
   }, []);
 
   // Fetch reservations from API
@@ -147,17 +133,20 @@ const ReservationsList = () => {
       
       console.log("Reservation approved:", response.data);
       
-      // Send email notification to user
+      // Create in-app notification for user
       const approvedReservation = reservations.find(res => res.id === id);
       if (approvedReservation) {
         try {
-          await ReservationEmailService.notifyUserAboutStatusUpdate(
-            approvedReservation, 
-            'APPROVED'
+          await NotificationService.createNotification(
+            approvedReservation.userId || approvedReservation.reservedBy,
+            'Reservation Approved',
+            `Your reservation for ${approvedReservation.classroom} on ${approvedReservation.date} has been approved.`,
+            'fas fa-check-circle',
+            'green'
           );
-          console.log("Approval notification email sent to user");
-        } catch (emailError) {
-          console.error("Error sending approval email:", emailError);
+          console.log("Approval notification created for user");
+        } catch (notificationError) {
+          console.error("Error creating approval notification:", notificationError);
         }
       }
       
@@ -230,16 +219,18 @@ const ReservationsList = () => {
       
       console.log("Reservation rejected:", response.data);
       
-      // Send email notification to user with rejection reason
+      // Create in-app notification for user with rejection reason
       try {
-        await ReservationEmailService.notifyUserAboutStatusUpdate(
-          selectedReservation, 
-          'REJECTED',
-          rejectReason
+        await NotificationService.createNotification(
+          selectedReservation.userId || selectedReservation.reservedBy,
+          'Reservation Rejected',
+          `Your reservation for ${selectedReservation.classroom} on ${selectedReservation.date} has been rejected. Reason: ${rejectReason}`,
+          'fas fa-times-circle',
+          'red'
         );
-        console.log("Rejection notification email sent to user");
-      } catch (emailError) {
-        console.error("Error sending rejection email:", emailError);
+        console.log("Rejection notification created for user");
+      } catch (notificationError) {
+        console.error("Error creating rejection notification:", notificationError);
       }
       
       // Update local state
@@ -308,50 +299,9 @@ const ReservationsList = () => {
       setIsLoading(false);
     }
   };
-// Mark a reservation as used
-const markAsUsed = async (id) => {
-  if (!window.confirm('Mark this reservation as used?')) return;
-  
-  setIsLoading(true);
-  
-  try {
-    let response;
-    try {
-      response = await API.put(`/api/admin/mark-used-reservation/${id}`);
-    } catch (err) {
-      console.log("Falling back to reservations used endpoint");
-      response = await API.put(`/api/reservations/${id}/mark-used`);
-    }
-    
-    if (!response || !response.data) {
-      throw new Error("Invalid response from server");
-    }
-    
-    console.log("Reservation marked as used:", response.data);
-    
-    // Update local state
-    const updatedReservations = reservations.map(res => 
-      res.id === id ? { ...res, status: 'USED' } : res
-    );
-    
-    setReservations(updatedReservations);
-    setFilteredReservations(
-      filteredReservations.map(res => res.id === id ? { ...res, status: 'USED' } : res)
-    );
-    
-    // Close modal if open
-    if (showDetailModal && selectedReservation && selectedReservation.id === id) {
-      setShowDetailModal(false);
-    }
-    
-    alert("Reservation marked as used successfully");
-  } catch (err) {
-    console.error("Error marking reservation as used:", err);
-    alert("Failed to mark reservation as used. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+
+
+
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -387,19 +337,19 @@ const markAsUsed = async (id) => {
         <div className="filter-container">
           <div className="form-group">
             <label htmlFor="status">Status</label>
-           <select 
-  id="status" 
-  name="status"
-  value={filterCriteria.status}
-  onChange={handleFilterChange}
->
-  <option value="">All Statuses</option>
-  <option value="approved">Approved</option>
-  <option value="pending">Pending</option>
-  <option value="rejected">Rejected</option>
-  <option value="canceled">Canceled</option>
-  <option value="used">Used</option>
-</select>
+            <select 
+              id="status" 
+              name="status"
+              value={filterCriteria.status}
+              onChange={handleFilterChange}
+            >
+              <option value="">All Statuses</option>
+              <option value="approved">Approved</option>
+              <option value="pending">Pending</option>
+              <option value="rejected">Rejected</option>
+              <option value="canceled">Canceled</option>
+              <option value="used">Used</option>
+            </select>
           </div>
           <div className="form-group">
             <label htmlFor="role">User Role</label>
@@ -506,15 +456,6 @@ const markAsUsed = async (id) => {
                               >
                                 Approve
                               </button>
-                              {reservation.status === 'APPROVED' && (
-  <button 
-    className="btn-table btn-edit"
-    onClick={() => markAsUsed(reservation.id)}
-    disabled={isLoading}
-  >
-    Mark as Used
-  </button>
-)}
                               <button 
                                 className="btn-table btn-delete"
                                 onClick={() => openRejectModal(reservation)}
@@ -525,13 +466,16 @@ const markAsUsed = async (id) => {
                             </>
                           )}
                           {reservation.status === 'APPROVED' && (
-                            <button 
-                              className="btn-table btn-delete"
-                              onClick={() => cancelReservation(reservation.id)}
-                              disabled={isLoading}
-                            >
-                              Cancel
-                            </button>
+                            <>
+                             
+                              <button 
+                                className="btn-table btn-delete"
+                                onClick={() => cancelReservation(reservation.id)}
+                                disabled={isLoading}
+                              >
+                                Cancel
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -613,32 +557,18 @@ const markAsUsed = async (id) => {
                 </>
               )}
               {selectedReservation.status === 'APPROVED' && (
-                <button 
-                  className="btn-danger"
-                  onClick={() => cancelReservation(selectedReservation.id)}
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Processing...' : 'Cancel Reservation'}
-                </button>
+                <>
+                 
+                 
+                  <button 
+                    className="btn-danger"
+                    onClick={() => cancelReservation(selectedReservation.id)}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Processing...' : 'Cancel Reservation'}
+                  </button>
+                </>
               )}
-              {selectedReservation.status === 'APPROVED' && (
-                <button 
-                  className="btn-danger"
-                  onClick={() => cancelReservation(selectedReservation.id)}
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Processing...' : 'Cancel Reservation'}
-                </button>
-              )}
-              {selectedReservation.status === 'APPROVED' && (
-  <button 
-    className="btn-success mr-3"
-    onClick={() => markAsUsed(selectedReservation.id)}
-    disabled={isLoading}
-  >
-    {isLoading ? 'Processing...' : 'Mark as Used'}
-  </button>
-)}
             </div>
           </div>
         )}
@@ -673,7 +603,7 @@ const markAsUsed = async (id) => {
                 required
               ></textarea>
               <small className="form-hint">
-                This reason will be included in the notification email sent to the user.
+                This reason will be included in the notification sent to the user.
               </small>
             </div>
             

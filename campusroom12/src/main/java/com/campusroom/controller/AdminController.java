@@ -2,7 +2,6 @@ package com.campusroom.controller;
 
 import com.campusroom.dto.*;
 import com.campusroom.service.AdminService;
-import com.campusroom.service.ReportService;
 import com.campusroom.service.ReservationAutoRejectionService;
 import com.campusroom.service.ReservationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,17 +35,11 @@ private ClassroomAvailabilityService availabilityService;
 @Autowired
 private ReservationAutoRejectionService reservationAutoRejectionService;
     
-    @Autowired
-    private ReportService reportService;
     
     @Autowired
     private ReservationService reservationService;
     
-    @GetMapping("/dashboard/stats")
-    public ResponseEntity<DashboardStatsDTO> getDashboardStats(
-            @RequestParam(defaultValue = "false") boolean forceRefresh) {
-        return ResponseEntity.ok(reportService.getDashboardStats(forceRefresh));
-    }
+   
     
     @GetMapping("/dashboard/notifications")
     public ResponseEntity<List<NotificationDTO>> getNotifications() {
@@ -62,13 +55,7 @@ private ReservationAutoRejectionService reservationAutoRejectionService;
     public ResponseEntity<List<DemandDTO>> getPendingDemands() {
         return ResponseEntity.ok(reservationService.getPendingDemands());
     }
-    
-    @GetMapping("/reports")
-    public ResponseEntity<ReportDataDTO> getReportsData(
-            @RequestParam(defaultValue = "false") boolean forceRefresh) {
-        return ResponseEntity.ok(reportService.getCompleteReportData(forceRefresh));
-    }
-    
+   
     @PutMapping("/approve-reservation/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> approveReservation(@PathVariable String id) {

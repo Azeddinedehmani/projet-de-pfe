@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { API } from '../../api';
 import Table from '../common/Table';
 import Modal from '../common/Modal';
-import '../../styles/dashboard.css';
+import '../../styles/unifié.css';
 
 const ProfessorReservations = () => {
   const { currentUser } = useAuth();

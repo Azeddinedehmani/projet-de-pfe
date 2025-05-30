@@ -118,18 +118,18 @@ public class ProfileService {
      * @param user User entity
      * @return ProfileDTO
      */
-    private ProfileDTO convertToProfileDTO(User user) {
-        ProfileDTO profileDTO = new ProfileDTO();
-        profileDTO.setId(user.getId());
-        profileDTO.setFirstName(user.getFirstName());
-        profileDTO.setLastName(user.getLastName());
-        profileDTO.setEmail(user.getEmail());
-        profileDTO.setRole(user.getRole().name());
-        profileDTO.setDepartment(user.getDepartment());
-        profileDTO.setPhone(user.getPhone());
-        profileDTO.setProfileImageUrl(user.getProfileImageUrl()); // Include profile image URL
-        profileDTO.setLastLogin(user.getLastLogin());
-        
-        return profileDTO;
-    }
+   private ProfileDTO convertToProfileDTO(User user) {
+    ProfileDTO profileDTO = new ProfileDTO();
+    profileDTO.setId(user.getId());
+    profileDTO.setFirstName(user.getFirstName());
+    profileDTO.setLastName(user.getLastName());
+    profileDTO.setEmail(user.getEmail());
+    profileDTO.setRole(user.getRole().name());
+    profileDTO.setDepartment(user.getDepartment());
+    profileDTO.setPhone(user.getPhone());
+    profileDTO.setProfileImageUrl(user.getProfileImageUrl()); // Include profile image URL
+    // profileDTO.setLastLogin(user.getLastLogin()); SUPPRIMER CETTE LIGNE
+    
+    return profileDTO;
+}
 }

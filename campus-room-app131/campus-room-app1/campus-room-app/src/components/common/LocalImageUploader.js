@@ -1,17 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import LocalImageService from '../../utils/LocalImageService';
 import useAuth from '../../hooks/useAuth';
 
 // This component handles local image upload that saves to the browser's storage
-// rather than the server - now with user-specific storage
+// rather than the server - now with user-specific storage and professional camera button
 const LocalImageUploader = ({ onImageSelect }) => {
   const { currentUser } = useAuth();
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+  const fileInputRef = useRef(null);
   
   const handleImageChange = (e) => {
     setUploading(true);
+    setError('');
+    
     const file = e.target.files[0];
     if (!file) {
       setUploading(false);
@@ -24,14 +28,14 @@ const LocalImageUploader = ({ onImageSelect }) => {
     // Validate file type
     const extension = file.name.split('.').pop().toLowerCase();
     if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
-      alert('Please upload an image file (JPG, PNG, GIF, WEBP)');
+      setError('Please upload an image file (JPG, PNG, GIF, WEBP)');
       setUploading(false);
       return;
     }
     
     // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
-      alert('Image file must be smaller than 5MB');
+      setError('Image file must be smaller than 5MB');
       setUploading(false);
       return;
     }
@@ -56,7 +60,7 @@ const LocalImageUploader = ({ onImageSelect }) => {
           console.log('LocalImageUploader: Saved resized image, URL:', imageUrl);
           
           // Update state
-          setSelectedImage(uniqueFileName);
+          setSelectedImage(file.name);
           setImagePreviewUrl(resizedDataUrl);
           setUploading(false);
           
@@ -78,7 +82,7 @@ const LocalImageUploader = ({ onImageSelect }) => {
         console.log('LocalImageUploader: Saved original image, URL:', storedImageUrl);
         
         // Update state
-        setSelectedImage(uniqueFileName);
+        setSelectedImage(file.name);
         setImagePreviewUrl(imageUrl);
         setUploading(false);
         
@@ -94,7 +98,7 @@ const LocalImageUploader = ({ onImageSelect }) => {
     
     reader.onerror = () => {
       console.error('LocalImageUploader: Error reading file');
-      alert('Error reading file. Please try again.');
+      setError('Error reading file. Please try again.');
       setUploading(false);
     };
     
@@ -133,32 +137,105 @@ const LocalImageUploader = ({ onImageSelect }) => {
     reader.readAsDataURL(file);
   };
 
+  const triggerFileInput = () => {
+    if (fileInputRef.current && !uploading) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedImage(null);
+    setImagePreviewUrl('');
+    setError('');
+    
+    // Clear the file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+    // Notify parent component
+    onImageSelect({
+      target: {
+        name: 'profileImageUrl',
+        value: ''
+      }
+    });
+  };
+
   return (
-    <div className="local-image-uploader">
-      <div className="form-group">
-        <label htmlFor="local-image-upload">Upload New Image</label>
-        <input
-          type="file"
-          id="local-image-upload"
-          accept="image/*"
-          onChange={handleImageChange}
-          className="form-control"
-          disabled={uploading}
-        />
-        <small className="form-hint">
-          Upload an image from your computer - it will be stored in your browser.
-          {uploading && ' Processing image...'}
-        </small>
+    <div className="upload-button-container">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleImageChange}
+        style={{ display: 'none' }}
+        disabled={uploading}
+      />
+      
+      {/* Custom styled camera button */}
+      <button 
+        type="button"
+        className="custom-upload-btn" 
+        onClick={triggerFileInput}
+        disabled={uploading}
+      >
+        <i className="fas fa-camera"></i>
+        {uploading ? 'Processing...' : 'Choose Profile Image'}
+      </button>
+      
+      {/* Upload status and controls */}
+      <div className="upload-status">
+        {error && (
+          <div className="file-status error">
+            <i className="fas fa-exclamation-triangle"></i>
+            {error}
+          </div>
+        )}
+        
+        {selectedImage && !error && (
+          <div className="file-status selected">
+            <div className="file-info">
+              <i className="fas fa-check-circle"></i>
+              <span>Selected: {selectedImage}</span>
+            </div>
+            <button 
+              type="button"
+              className="clear-file-btn"
+              onClick={clearSelection}
+              disabled={uploading}
+              title="Remove selected image"
+            >
+              <i className="fas fa-times"></i>
+            </button>
+          </div>
+        )}
+        
+        {!selectedImage && !error && !uploading && (
+          <div className="file-status">
+            <i className="fas fa-info-circle"></i>
+            No file selected
+          </div>
+        )}
       </div>
       
-      {imagePreviewUrl && (
+      {/* Image preview */}
+      {imagePreviewUrl && !error && (
         <div className="upload-preview">
-          <img 
-            src={imagePreviewUrl} 
-            alt="Upload preview" 
-            style={{ maxWidth: '100%', maxHeight: '150px' }}
-          />
-          <div className="preview-caption">Image uploaded successfully!</div>
+          <div className="preview-container">
+            <img 
+              src={imagePreviewUrl} 
+              alt="Upload preview" 
+              className="preview-image"
+            />
+            <div className="preview-overlay">
+              <div className="preview-caption">
+                <i className="fas fa-check-circle"></i>
+                Image uploaded successfully!
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

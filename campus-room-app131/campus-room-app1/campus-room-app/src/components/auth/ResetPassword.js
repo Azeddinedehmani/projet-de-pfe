@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import '../../styles/auth.css';
+import '../../styles/unifié.css';
 
 const ResetPassword = () => {
   const [formData, setFormData] = useState({

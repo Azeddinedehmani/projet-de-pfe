@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API } from '../../api';
-import '../../styles/dashboard.css';
+import '../../styles/unifié.css';
 
 // Timetable visualization component
 const TimetableVisualization = ({ user }) => {
@@ -83,6 +83,8 @@ const TimetableVisualization = ({ user }) => {
 };
 
 const UserManagement = () => {
+  const [showViewUserModal, setShowViewUserModal] = useState(false);
+  const [viewedUser, setViewedUser] = useState(null);
   // States
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -267,6 +269,147 @@ const UserManagement = () => {
         align-items: center;
         justify-content: space-between;
       }
+
+      /* Styles for View User Modal */
+      .user-details-container {
+        max-height: 70vh;
+        overflow-y: auto;
+      }
+      
+      .details-section {
+        margin-bottom: 25px;
+        padding: 20px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background-color: #f9fafb;
+      }
+      
+      .details-section h3 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #374151;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-bottom: 2px solid #e5e7eb;
+        padding-bottom: 8px;
+      }
+      
+      .details-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+      }
+      
+      .detail-item {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      
+      .detail-item label {
+        font-weight: 600;
+        color: #6b7280;
+        font-size: 0.9rem;
+      }
+      
+      .detail-item span {
+        color: #111827;
+        font-size: 1rem;
+        word-break: break-word;
+      }
+      
+      .profile-image-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
+      
+      .profile-image-preview {
+        max-width: 150px;
+        max-height: 150px;
+        border-radius: 50%;
+        border: 3px solid #e5e7eb;
+        object-fit: cover;
+      }
+      
+      .timetable-summary {
+        margin-top: 10px;
+      }
+      
+      .timetable-preview {
+        margin-top: 15px;
+      }
+      
+      .classes-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      
+      .class-item {
+        padding: 12px 15px;
+        background-color: white;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+      
+      .class-name {
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 5px;
+      }
+      
+      .class-details {
+        font-size: 0.9rem;
+        color: #6b7280;
+      }
+      
+      .more-classes {
+        padding: 10px 15px;
+        text-align: center;
+        color: #6b7280;
+        font-style: italic;
+        background-color: white;
+        border-radius: 6px;
+        border: 1px dashed #d1d5db;
+      }
+      
+      .action-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      
+      .btn-danger {
+        background-color: #ef4444;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      
+      .btn-danger:hover {
+        background-color: #dc2626;
+      }
+      
+      .btn-danger:disabled {
+        background-color: #9ca3af;
+        cursor: not-allowed;
+      }
+      
+      @media (max-width: 768px) {
+        .details-grid {
+          grid-template-columns: 1fr;
+        }
+        
+        .action-buttons {
+          flex-direction: column;
+        }
+      }
     `;
     document.head.appendChild(style);
     
@@ -353,19 +496,18 @@ const UserManagement = () => {
   };
 
   // Format and normalize user data to handle null values
-  const formatUserData = (user) => {
-    return {
-      ...user,
-      // Ensure these values have defaults if they're null or undefined
-      firstName: user.firstName || '',
-      lastName: user.lastName || '',
-      email: user.email || '',
-      role: user.role || 'student',
-      status: user.status || 'inactive', // Default to inactive if status is null
-      lastLoginDisplay: user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never',
-      timetableEntries: user.timetableEntries || []
-    };
+const formatUserData = (user) => {
+  return {
+    ...user,
+    // Ensure these values have defaults if they're null or undefined
+    firstName: user.firstName || '',
+    lastName: user.lastName || '',
+    email: user.email || '',
+    role: user.role || 'student',
+    status: user.status || 'inactive', // Default to inactive if status is null
+    timetableEntries: user.timetableEntries || []
   };
+};
 
   // Fetch users from API
   useEffect(() => {
@@ -514,47 +656,82 @@ const UserManagement = () => {
     }
   };
 
-  const toggleUserStatus = async (userId) => {
-    try {
-      setActionInProgress(true);
-      
-      // Find the user to update
-      const userToUpdate = users.find(user => user.id === userId);
-      if (!userToUpdate) {
-        throw new Error('User not found');
-      }
-      
-      // Determine new status (toggle current status)
-      const currentStatus = userToUpdate.status || 'inactive';
-      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-      
-      // When calling the function
-      const response = await API.userAPI.toggleUserStatus(userId, newStatus);
-      
-      if (response.data.success) {
-        // Update local state with new status
-        const updatedUsers = users.map(user => {
-          if (user.id === userId) {
-            return { ...user, status: newStatus };
-          }
-          return user;
-        });
-        
-        setUsers(updatedUsers);
-        setFilteredUsers(updatedUsers.filter(user => matchesCurrentFilters(user)));
-        
-        // Show success message
-        alert(response.data.message || `User ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`);
-      } else {
-        alert(response.data.message || 'Error updating user status');
-      }
-    } catch (error) {
-      console.error('Error toggling user status:', error);
-      alert('Failed to update user status: ' + (error.response?.data?.message || error.message || 'Unknown error'));
-    } finally {
-      setActionInProgress(false);
+ // In UserManagement.js, replace the toggleUserStatus function with this corrected version:
+
+const toggleUserStatus = async (userId) => {
+  try {
+    setActionInProgress(true);
+    
+    // Find the user to update
+    const userToUpdate = users.find(user => user.id === userId);
+    if (!userToUpdate) {
+      throw new Error('User not found');
     }
-  };
+    
+    // Prevent status change for admin users
+    if (userToUpdate.role && userToUpdate.role.toLowerCase() === 'admin') {
+      alert('Cannot change status of administrator users.');
+      setActionInProgress(false);
+      return;
+    }
+    
+    // Determine new status (toggle current status)
+    const currentStatus = userToUpdate.status || 'inactive';
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    
+    console.log(`Changing user ${userId} status from ${currentStatus} to ${newStatus}`);
+    
+    // Make the API call using the correct endpoint
+    const response = await API.put(`/users/${userId}/status`, {
+      status: newStatus
+    });
+    
+    console.log('Status change response:', response.data);
+    
+    if (response.data && response.data.success) {
+      // Update local state with new status
+      const updatedUsers = users.map(user => {
+        if (user.id === userId) {
+          return { ...user, status: newStatus };
+        }
+        return user;
+      });
+      
+      setUsers(updatedUsers);
+      setFilteredUsers(updatedUsers.filter(user => matchesCurrentFilters(user)));
+      
+      // Update viewedUser if it's the same user
+      if (viewedUser && viewedUser.id === userId) {
+        setViewedUser({ ...viewedUser, status: newStatus });
+      }
+      
+      // Show success message
+      alert(response.data.message || `User ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`);
+    } else {
+      alert(response.data?.message || 'Error updating user status');
+    }
+  } catch (error) {
+    console.error('Error toggling user status:', error);
+    
+    // Enhanced error handling
+    let errorMessage = 'Failed to update user status: ';
+    if (error.response?.data?.message) {
+      errorMessage += error.response.data.message;
+    } else if (error.response?.data) {
+      errorMessage += typeof error.response.data === 'string' 
+        ? error.response.data 
+        : JSON.stringify(error.response.data);
+    } else if (error.message) {
+      errorMessage += error.message;
+    } else {
+      errorMessage += 'Unknown error';
+    }
+    
+    alert(errorMessage);
+  } finally {
+    setActionInProgress(false);
+  }
+};
 
   // Check if user matches current filters
   const matchesCurrentFilters = (user) => {
@@ -581,65 +758,73 @@ const UserManagement = () => {
     return true;
   };
 
-  const deleteUser = async (id) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      try {
-        setActionInProgress(true);
-        console.log('Tentative de suppression de l\'utilisateur avec ID:', id);
-        
-        // Tentative avec l'API directe d'abord
-        try {
-          await API.delete(`/users/${id}`);
-          console.log('Utilisateur supprimé avec succès via API directe');
-        } catch (directError) {
-          console.error('Erreur avec l\'appel API direct, tentative via userAPI:', directError);
-          
-          // Si l'API directe échoue, essayer avec l'API userAPI si disponible
-          if (API.userAPI && typeof API.userAPI.deleteUser === 'function') {
-            await API.userAPI.deleteUser(id);
-            console.log('Utilisateur supprimé avec succès via userAPI');
-          } else {
-            throw directError; // Relancer l'erreur si userAPI n'est pas disponible
-          }
-        }
-        
-        // Mise à jour de l'état local
-        const updatedUsers = users.filter(user => user.id !== id);
-        setUsers(updatedUsers);
-        setFilteredUsers(updatedUsers.filter(user => matchesCurrentFilters(user)));
-        
-        // Afficher un message de succès
-        alert('Utilisateur supprimé avec succès');
-      } catch (error) {
-        console.error('Erreur lors de la suppression de l\'utilisateur:', error);
-        
-        // Message d'erreur amélioré
-        let errorMessage = 'Échec de la suppression de l\'utilisateur: ';
-        if (error.response && error.response.data) {
-          if (error.response.data.message) {
-            errorMessage += error.response.data.message;
-          } else if (typeof error.response.data === 'string') {
-            errorMessage += error.response.data;
-          } else {
-            errorMessage += 'Erreur serveur - vérifiez les logs du serveur';
-          }
-        } else if (error.message) {
-          errorMessage += error.message;
-        } else {
-          errorMessage += 'Erreur inconnue';
-        }
-        
-        alert(errorMessage);
-      } finally {
-        setActionInProgress(false);
+// Also update the deleteUser function to handle admin users properly:
+const deleteUser = async (id) => {
+  // Find the user to check if it's an admin
+  const userToDelete = users.find(user => user.id === id);
+  if (userToDelete && userToDelete.role && userToDelete.role.toLowerCase() === 'admin') {
+    alert('Cannot delete administrator users.');
+    return;
+  }
+  
+  if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+    try {
+      setActionInProgress(true);
+      console.log('Attempting to delete user with ID:', id);
+      
+      // Use the direct API call
+      await API.delete(`/users/${id}`);
+      console.log('User deleted successfully');
+      
+      // Update local state
+      const updatedUsers = users.filter(user => user.id !== id);
+      setUsers(updatedUsers);
+      setFilteredUsers(updatedUsers.filter(user => matchesCurrentFilters(user)));
+      
+      // Close view modal if the deleted user was being viewed
+      if (viewedUser && viewedUser.id === id) {
+        setShowViewUserModal(false);
+        setViewedUser(null);
       }
+      
+      // Show success message
+      alert('User deleted successfully');
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      
+      // Enhanced error message
+      let errorMessage = 'Failed to delete user: ';
+      if (error.response?.data?.message) {
+        errorMessage += error.response.data.message;
+      } else if (error.response?.status === 400) {
+        errorMessage += 'Bad request - user may have associated data that prevents deletion';
+      } else if (error.response?.status === 403) {
+        errorMessage += 'Access denied - insufficient permissions';
+      } else if (error.response?.status === 404) {
+        errorMessage += 'User not found or already deleted';
+      } else if (error.message) {
+        errorMessage += error.message;
+      } else {
+        errorMessage += 'Unknown error occurred';
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setActionInProgress(false);
     }
-  };
-  // View user details
+  }
+};
+
+
+  // View user details - NOUVELLE FONCTION
   const viewUser = (id) => {
-    // You can implement navigation to user detail page
-    // or show user details in a modal
-    alert(`View user details for ID: ${id}`);
+    const user = users.find(u => u.id === id);
+    if (user) {
+      setViewedUser(user);
+      setShowViewUserModal(true);
+    } else {
+      alert('User not found');
+    }
   };
   
   // Add this helper function to extract timetable entries from a response
@@ -1055,14 +1240,13 @@ const UserManagement = () => {
                 <th>Email</th>
                 <th>Role</th>
                 <th>Status</th>
-                <th>Last Login</th>
                 <th>Actions</th>
               </tr>
             </thead>
-            <tbody>
+           <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center">No users found</td>
+                  <td colSpan="6" className="text-center">No users found</td>
                 </tr>
               ) : (
                 filteredUsers.map(user => (
@@ -1084,7 +1268,6 @@ const UserManagement = () => {
                           : 'Inactive'}
                       </span>
                     </td>
-                    <td>{user.lastLoginDisplay}</td>
                     <td>
                       <div className="table-actions">
                         <button 
@@ -1095,8 +1278,9 @@ const UserManagement = () => {
                           View
                         </button>
                         
-                        {/* Add View Timetable button for students and professors */}
-                        {(user.role && (user.role.toLowerCase() === 'student' || user.role.toLowerCase() === 'professor')) && (
+                        {/* Only show timetable for non-admin users */}
+                        {(user.role && user.role.toLowerCase() !== 'admin' && 
+                          (user.role.toLowerCase() === 'student' || user.role.toLowerCase() === 'professor')) && (
                           <button 
                             className="btn-table btn-view"
                             onClick={() => openTimetableModal(user)}
@@ -1106,20 +1290,27 @@ const UserManagement = () => {
                           </button>
                         )}
                         
-                        <button 
-                          className="btn-table btn-edit"
-                          onClick={() => toggleUserStatus(user.id)}
-                          disabled={actionInProgress}
-                        >
-                          {(user.status || 'inactive') === 'active' ? 'Deactivate' : 'Activate'}
-                        </button>
-                        <button 
-                          className="btn-table btn-delete"
-                          onClick={() => deleteUser(user.id)}
-                          disabled={actionInProgress}
-                        >
-                          Delete
-                        </button>
+                        {/* Hide activate/deactivate button for admin users */}
+                        {user.role && user.role.toLowerCase() !== 'admin' && (
+                          <button 
+                            className="btn-table btn-edit"
+                            onClick={() => toggleUserStatus(user.id)}
+                            disabled={actionInProgress}
+                          >
+                            {(user.status || 'inactive') === 'active' ? 'Deactivate' : 'Activate'}
+                          </button>
+                        )}
+                        
+                        {/* Hide delete button for admin users */}
+                        {user.role && user.role.toLowerCase() !== 'admin' && (
+                          <button 
+                            className="btn-table btn-delete"
+                            onClick={() => deleteUser(user.id)}
+                            disabled={actionInProgress}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1130,9 +1321,179 @@ const UserManagement = () => {
         </div>
       </div>
       
+      {/* View User Details Modal */}
+      {showViewUserModal && viewedUser && (
+        <div className="modal show">
+          <div className="modal-content modal-lg">
+            <div className="modal-header">
+              <h2>User Details</h2>
+              <span 
+                className="close-modal"
+                onClick={() => setShowViewUserModal(false)}
+              >
+                &times;
+              </span>
+            </div>
+            <div className="modal-body">
+              <div className="user-details-container">
+                {/* Basic Information Section */}
+                <div className="details-section">
+                  <h3>Basic Information</h3>
+                  <div className="details-grid">
+                    <div className="detail-item">
+                      <label>User ID:</label>
+                      <span>{viewedUser.id}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label>First Name:</label>
+                      <span>{viewedUser.firstName || 'Not specified'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label>Last Name:</label>
+                      <span>{viewedUser.lastName || 'Not specified'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label>Full Name:</label>
+                      <span>{`${viewedUser.firstName || ''} ${viewedUser.lastName || ''}`.trim() || 'Not specified'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label>Email:</label>
+                      <span>{viewedUser.email || 'Not specified'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label>Role:</label>
+                      <span className="role-badge">
+                        {viewedUser.role 
+                          ? viewedUser.role.charAt(0).toUpperCase() + viewedUser.role.slice(1).toLowerCase() 
+                          : 'Unknown'}
+                      </span>
+                    </div>
+                    <div className="detail-item">
+                      <label>Status:</label>
+                      <span className={`status-badge status-${(viewedUser.status || 'inactive') === 'active' ? 'approved' : 'pending'}`}>
+                        {viewedUser.status 
+                          ? viewedUser.status.charAt(0).toUpperCase() + viewedUser.status.slice(1)
+                          : 'Inactive'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                
+
+                {/* Profile Image Section */}
+                {viewedUser.profileImageUrl && (
+                  <div className="details-section">
+                    <h3>Profile Image</h3>
+                    <div className="profile-image-container">
+                      <img 
+                        src={viewedUser.profileImageUrl} 
+                        alt={`${viewedUser.firstName} ${viewedUser.lastName}`}
+                        className="profile-image-preview"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Timetable Information Section */}
+                {(viewedUser.role === 'student' || viewedUser.role === 'professor') && (
+                  <div className="details-section">
+                    <h3>Timetable Information</h3>
+                    <div className="timetable-summary">
+                      <div className="detail-item">
+                        <label>Total Classes:</label>
+                        <span>{viewedUser.timetableEntries ? viewedUser.timetableEntries.length : 0}</span>
+                      </div>
+                      {viewedUser.timetableEntries && viewedUser.timetableEntries.length > 0 && (
+                        <div className="timetable-preview">
+                          <h4>Upcoming Classes:</h4>
+                          <div className="classes-list">
+                            {viewedUser.timetableEntries.slice(0, 3).map((entry, index) => (
+                              <div key={index} className="class-item" style={{borderLeft: `4px solid ${entry.color || '#6366f1'}`}}>
+                                <div className="class-name">{entry.name}</div>
+                                <div className="class-details">
+                                  {entry.day} • {entry.startTime} - {entry.endTime}
+                                  {entry.location && <span> • {entry.location}</span>}
+                                </div>
+                              </div>
+                            ))}
+                            {viewedUser.timetableEntries.length > 3 && (
+                              <div className="more-classes">
+                                And {viewedUser.timetableEntries.length - 3} more classes...
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="details-section">
+                  <h3>Actions</h3>
+                  <div className="action-buttons">
+                    {/* Only show these buttons for non-admin users */}
+                    {viewedUser.role && viewedUser.role.toLowerCase() !== 'admin' && (
+                      <>
+                        <button 
+                          className="btn-secondary"
+                          onClick={() => toggleUserStatus(viewedUser.id)}
+                          disabled={actionInProgress}
+                        >
+                          {(viewedUser.status || 'inactive') === 'active' ? 'Deactivate User' : 'Activate User'}
+                        </button>
+                        
+                        {(viewedUser.role.toLowerCase() === 'student' || viewedUser.role.toLowerCase() === 'professor') && (
+                          <button 
+                            className="btn-secondary"
+                            onClick={() => {
+                              setShowViewUserModal(false);
+                              openTimetableModal(viewedUser);
+                            }}
+                            disabled={actionInProgress}
+                          >
+                            View Timetable
+                          </button>
+                        )}
+                        
+                        <button 
+                          className="btn-danger"
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to delete this user?')) {
+                              deleteUser(viewedUser.id);
+                              setShowViewUserModal(false);
+                            }
+                          }}
+                          disabled={actionInProgress}
+                        >
+                          Delete User
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                type="button" 
+                className="btn-secondary"
+                onClick={() => setShowViewUserModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Add User Modal */}
       {showAddUserModal && (
-        <div className="modal">
+        <div className="modal show">
           <div className="modal-content modal-lg">
             <div className="modal-header">
               <h2>Add New User</h2>
@@ -1209,7 +1570,6 @@ const UserManagement = () => {
                       required
                       disabled={actionInProgress}
                     >
-                      <option value="admin">Admin</option>
                       <option value="professor">Professor</option>
                       <option value="student">Student</option>
                     </select>
@@ -1261,7 +1621,7 @@ const UserManagement = () => {
       
       {/* Timetable View Modal */}
       {showTimetableModal && selectedUser && (
-        <div className="modal">
+        <div className="modal show">
           <div className="modal-content modal-lg">
             <div className="modal-header">
               <h2>Timetable: {selectedUser.firstName} {selectedUser.lastName} ({selectedUser.role})</h2>
@@ -1339,8 +1699,6 @@ const UserManagement = () => {
                         </table>
                       )}
                     </div>
-                    
-                 
                   </>
                 )}
               </div>
