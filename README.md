@@ -1,126 +1,86 @@
-Campus Room - Classroom Reservation System
-A React-based classroom and study space reservation system for educational institutions.
+Campus Room est un système de réservation de salles de classe et d'espaces d'étude basé sur React, conçu pour les institutions éducatives. Le projet est actuellement en phase de développement (PFE - Projet de Fin d'Études) et suit une architecture basée sur les composants React avec une séparation claire entre les rôles utilisateurs (Admin, Professeur, Étudiant). Le système inclut l'authentification, un tableau de bord personnalisé par rôle, et une gestion complète des réservations avec vue calendrier et responsive design.
 
-Features
-Authentication system with role-based access control (Admin, Professor, Student)
-Dashboard for each user role with relevant statistics and information
-Classroom and study room reservation functionality
-Calendar view for schedules and reservations
-Mobile-responsive design
-Project Structure
-The project follows a component-based architecture with the following structure:
+Points Fonctionnels Principaux
+Système d'authentification avec contrôle d'accès basé sur les rôles (Admin, Professeur, Étudiant)
+Tableaux de bord personnalisés pour chaque rôle avec statistiques pertinentes
+Fonctionnalité de réservation de salles de classe et d'espaces d'étude
+Vue calendrier pour les horaires et les réservations
+Design réactif et adapté aux appareils mobiles
+Composants partagés et réutilisables pour les vues communes
+Pile Technologique
+Frontend: React.js avec hooks personnalisés et contextes
+Backend: Java (29.8%)
+Styles: CSS (13.9%)
+Package Manager: npm ou yarn
+Environnement: Node.js (v14 ou supérieur)
+Build: Webpack
+Licence
+Licencié sous la licence MIT - permissive et libre d'utilisation commerciale et personnelle
 
-campus-room-react/
-├── public/               # Static files
-├── src/
-│   ├── components/       # React components
-│   │   ├── common/       # Shared components
-│   │   ├── auth/         # Authentication components
-│   │   ├── admin/        # Admin-specific components
-│   │   ├── professor/    # Professor-specific components
-│   │   └── student/      # Student-specific components
-│   ├── contexts/         # React context providers
-│   ├── hooks/            # Custom React hooks
-│   ├── services/         # Service functions for API calls
-│   ├── utils/            # Utility functions
-│   ├── styles/           # CSS styles
-│   ├── App.js            # Main application component
-│   └── index.js          # Entry point
-└── package.json          # Project dependencies
-Getting Started
-Prerequisites
-Node.js (v14 or higher)
-npm or yarn
-Installation
-Clone the repository:
-git clone https://github.com/your-username/campus-room-react.git
-cd campus-room-react
-Install dependencies:
+Pour configurer et exécuter le projet Campus Room localement sur votre environnement de développement, suivez ces étapes :
+
+Prérequis
+Avant de commencer, assurez-vous d'avoir installé les éléments suivants :
+
+Node.js (version 14 ou supérieure)
+npm ou yarn (gestionnaires de paquets)
+Git (pour cloner le dépôt)
+Étapes de Configuration
+Cloner le dépôt
+Ouvrez votre terminal et exécutez la commande suivante pour cloner le dépôt :
+
+Copier
+git clone https://github.com/Azeddinedehmani/projet-de-pfe.git
+Naviguer dans le répertoire du projet
+Accédez au dossier du projet :
+
+Copier
+cd projet-de-pfe
+Installer les dépendances
+Utilisez npm ou yarn pour installer les dépendances nécessaires. Choisissez l'une des deux commandes ci-dessous :
+
+Avec npm :
+Copier
 npm install
-# or
+Avec yarn :
+Copier
 yarn install
-Start the development server:
+Configurer les variables d'environnement
+Créez un fichier .env à la racine du projet et configurez les variables d'environnement nécessaires (comme les informations de connexion à la base de données, API, etc.). Consultez la documentation du projet ou le fichier .env.example pour les variables requises.
+
+Démarrer le serveur de développement
+Une fois les dépendances installées et les variables d'environnement configurées, démarrez le serveur de développement :
+
+Avec npm :
+Copier
 npm start
-# or
+Avec yarn :
+Copier
 yarn start
-Open your browser and navigate to http://localhost:3000
-Default Users
-The system comes with the following default users for testing:
+Accéder à l'application
+Ouvrez votre navigateur et allez à l'adresse suivante :
 
-Role	Email	Password
-Admin	admin@example.com	admin123
-Professor	professor@example.com	prof123
-Student	student@example.com	student123
-Deployment
-To build the project for production:
+Copier
+http://localhost:3000
+Étapes supplémentaires
+Construire le projet pour la production (si nécessaire) :
 
+Copier
 npm run build
-# or
+ou
+
+Copier
 yarn build
-This will create a build directory with optimized production files.
+Exécuter des tests (si des tests sont inclus) :
 
-License
-This project is licensed under the MIT License.# Campus Room - Classroom Reservation System
+Copier
+npm test
+ou
 
-A React-based classroom and study space reservation system for educational institutions.
+Copier
+yarn test
+Résolution des problèmes
+Si vous rencontrez des problèmes lors de l'installation ou de l'exécution, vérifiez les messages d'erreur dans le terminal et assurez-vous que toutes les dépendances sont correctement installées. Vous pouvez également consulter la section "Issues" du dépôt GitHub pour des solutions potentielles.
 
-Features
-Authentication system with role-based access control (Admin, Professor, Student)
-Dashboard for each user role with relevant statistics and information
-Classroom and study room reservation functionality
-Calendar view for schedules and reservations
-Mobile-responsive design
-Project Structure
-The project follows a component-based architecture with the following structure:
-
-campus-room-react/
-├── public/               # Static files
-├── src/
-│   ├── components/       # React components
-│   │   ├── common/       # Shared components
-│   │   ├── auth/         # Authentication components
-│   │   ├── admin/        # Admin-specific components
-│   │   ├── professor/    # Professor-specific components
-│   │   └── student/      # Student-specific components
-│   ├── contexts/         # React context providers
-│   ├── hooks/            # Custom React hooks
-│   ├── services/         # Service functions for API calls
-│   ├── utils/            # Utility functions
-│   ├── styles/           # CSS styles
-│   ├── App.js            # Main application component
-│   └── index.js          # Entry point
-└── package.json          # Project dependencies
-Getting Started
-Prerequisites
-Node.js (v14 or higher)
-npm or yarn
-Installation
-Clone the repository:
-git clone https://github.com/your-username/campus-room-react.git
-cd campus-room-react
-Install dependencies:
-npm install
-# or
-yarn install
-Start the development server:
-npm start
-# or
-yarn start
-Open your browser and navigate to http://localhost:3000
-Default Users
-The system comes with the following default users for testing:
-
-Role	Email	Password
-Admin	admin@example.com	admin123
-Professor	professor@example.com	prof123
-Student	student@example.com	student123
-Deployment
-To build the project for production:
-
-npm run build
-# or
-yarn build
-This will create a build directory with optimized production files.
-
-License
-This project is licensed under the MIT License.
+Conclusion
+Vous devriez maintenant être en mesure d'exécuter le projet Campus Room localement. Si vous avez des questions supplémentaires, n'hésitez pas à consulter la documentation du projet ou à poser des questions sur le dépôt GitHub.
