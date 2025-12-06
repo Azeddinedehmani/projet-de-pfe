@@ -25,23 +25,81 @@ class SettingsService {
   _subscribers = [];
 
   /**
+   * WebSocket connection for real-time updates
+   * @private
+   */
+  _stompClient = null;
+
+  /**
+   * Constructor - Initialize WebSocket connection
+   */
+  constructor() {
+    this.initializeWebSocket();
+  }
+
+  /**
+   * Initialize WebSocket connection for real-time settings updates
+   */
+  initializeWebSocket() {
+    if (typeof window !== 'undefined') {
+      try {
+        // Note: You'll need to include SockJS and Stomp libraries
+        // Add these to your index.html:
+        // <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+        // <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+        
+        if (window.SockJS && window.Stomp) {
+          const socket = new window.SockJS('/ws');
+          this._stompClient = window.Stomp.over(socket);
+          
+          this._stompClient.connect({}, () => {
+            console.log('Connected to WebSocket for settings updates');
+            this._stompClient.subscribe('/topic/settings', (message) => {
+              try {
+                const updatedSettings = JSON.parse(message.body);
+                console.log('Received settings update via WebSocket:', updatedSettings);
+                this._updateCache(updatedSettings);
+              } catch (error) {
+                console.error('Error processing WebSocket settings update:', error);
+              }
+            });
+          }, (error) => {
+            console.warn('WebSocket connection failed, falling back to polling:', error);
+          });
+        }
+      } catch (error) {
+        console.warn('WebSocket initialization failed:', error);
+      }
+    }
+  }
+
+  /**
+   * Update cache and notify subscribers
+   * @private
+   */
+  _updateCache(settings) {
+    this._settingsCache = settings;
+    this._lastFetched = Date.now();
+    
+    // Save to localStorage for offline access
+    localStorage.setItem('systemSettings', JSON.stringify(settings));
+    
+    // Notify subscribers
+    this._notifySubscribers(settings);
+  }
+
+  /**
    * Force refresh the settings from the backend
    * @returns {Promise<Object>} The system settings
    */
   async refreshSettings() {
     try {
+      console.log('Refreshing settings from backend...');
       const response = await API.get('/settings');
       const settings = response.data;
       
-      // Update cache and timestamp
-      this._settingsCache = settings;
-      this._lastFetched = Date.now();
-      
-      // Save to localStorage for offline access
-      localStorage.setItem('systemSettings', JSON.stringify(settings));
-      
-      // Notify subscribers
-      this._notifySubscribers(settings);
+      // Update cache
+      this._updateCache(settings);
       
       return settings;
     } catch (error) {
@@ -50,7 +108,13 @@ class SettingsService {
       // Try to get from localStorage as fallback
       const cachedSettings = localStorage.getItem('systemSettings');
       if (cachedSettings) {
-        return JSON.parse(cachedSettings);
+        try {
+          const parsedSettings = JSON.parse(cachedSettings);
+          console.log('Using cached settings from localStorage');
+          return parsedSettings;
+        } catch (parseError) {
+          console.error('Error parsing cached settings:', parseError);
+        }
       }
       
       // If all else fails, return default settings
@@ -84,24 +148,39 @@ class SettingsService {
    */
   async updateSettings(updatedSettings) {
     try {
+      console.log('Updating settings:', updatedSettings);
       const response = await API.put('/settings', updatedSettings);
       const settings = response.data;
       
-      // Update cache and timestamp
-      this._settingsCache = settings;
-      this._lastFetched = Date.now();
-      
-      // Save to localStorage for offline access
-      localStorage.setItem('systemSettings', JSON.stringify(settings));
-      
-      // Notify subscribers
-      this._notifySubscribers(settings);
+      // Update cache
+      this._updateCache(settings);
       
       return settings;
     } catch (error) {
       console.error('Error updating settings:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get specific setting value with fallback
+   * @param {string} key The setting key
+   * @param {*} defaultValue Default value if setting not found
+   * @returns {*} Setting value or default
+   */
+  getSetting(key, defaultValue = null) {
+    if (!this._settingsCache) {
+      return defaultValue;
+    }
+    return this._settingsCache[key] !== undefined ? this._settingsCache[key] : defaultValue;
+  }
+
+  /**
+   * Check if settings are ready (loaded)
+   * @returns {boolean} Whether settings are loaded
+   */
+  isReady() {
+    return this._settingsCache !== null;
   }
 
   /**
@@ -115,10 +194,12 @@ class SettingsService {
     }
     
     this._subscribers.push(callback);
+    console.log(`Settings subscriber added. Total subscribers: ${this._subscribers.length}`);
     
     // Return unsubscribe function
     return () => {
       this._subscribers = this._subscribers.filter(cb => cb !== callback);
+      console.log(`Settings subscriber removed. Total subscribers: ${this._subscribers.length}`);
     };
   }
 
@@ -128,17 +209,18 @@ class SettingsService {
    * @param {Object} settings The updated settings
    */
   _notifySubscribers(settings) {
-    this._subscribers.forEach(callback => {
+    console.log(`Notifying ${this._subscribers.length} settings subscribers`);
+    this._subscribers.forEach((callback, index) => {
       try {
         callback(settings);
       } catch (error) {
-        console.error('Error in settings subscriber callback:', error);
+        console.error(`Error in settings subscriber ${index}:`, error);
       }
     });
   }
 
   /**
-   * Get default settings as fallback
+   * Get default settings if none are available
    * @private
    * @returns {Object} Default settings
    */
@@ -151,6 +233,13 @@ class SettingsService {
       autoApproveAdmin: true,
       autoApproveProfessor: false,
       autoApproveStudent: false,
+      emailNotifications: true,
+      reservationCreated: true,
+      reservationApproved: true,
+      reservationRejected: true,
+      newUserRegistered: true,
+      systemUpdates: true,
+      dailyDigest: false,
       maxDaysInAdvance: 30,
       minTimeBeforeReservation: 1,
       maxHoursPerReservation: 4,
@@ -162,40 +251,24 @@ class SettingsService {
   }
 
   /**
-   * Check if a reservation requires approval based on user role
-   * @param {string} userRole The user role (admin, professor, student)
-   * @returns {Promise<boolean>} Whether approval is required
+   * Cleanup WebSocket connection
    */
-  async isApprovalRequired(userRole) {
-    const settings = await this.getSettings();
-    
-    switch (userRole.toLowerCase()) {
-      case 'admin':
-        return !settings.autoApproveAdmin;
-      case 'professor':
-        return settings.professorRequireApproval;
-      case 'student':
-        return settings.studentRequireApproval;
-      default:
-        return true; // Default to requiring approval
+  disconnect() {
+    if (this._stompClient && this._stompClient.connected) {
+      this._stompClient.disconnect();
+      console.log('Disconnected from settings WebSocket');
     }
-  }
-
-  /**
-   * Get reservation time constraints based on settings
-   * @returns {Promise<Object>} Time constraints
-   */
-  async getReservationTimeConstraints() {
-    const settings = await this.getSettings();
-    
-    return {
-      maxDaysInAdvance: settings.maxDaysInAdvance,
-      minTimeBeforeReservation: settings.minTimeBeforeReservation,
-      maxHoursPerReservation: settings.maxHoursPerReservation,
-      maxReservationsPerWeek: settings.maxReservationsPerWeek
-    };
   }
 }
 
-// Export a singleton instance
-export default new SettingsService();
+// Create singleton instance
+const settingsService = new SettingsService();
+
+// Cleanup on page unload
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    settingsService.disconnect();
+  });
+}
+
+export default settingsService;

@@ -7,6 +7,7 @@ const AdminSettings = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saveStatus, setSaveStatus] = useState(null);
+  const [applicationStatus, setApplicationStatus] = useState({});
   
   // System settings state
   const [generalSettings, setGeneralSettings] = useState({
@@ -55,33 +56,33 @@ const AdminSettings = () => {
         
         // Update all three state groups
         setGeneralSettings({
-          systemName: settings.systemName,
-          tagline: settings.tagline,
-          contactEmail: settings.contactEmail,
-          supportPhone: settings.supportPhone,
-          autoApproveAdmin: settings.autoApproveAdmin,
-          autoApproveProfessor: settings.autoApproveProfessor,
-          autoApproveStudent: settings.autoApproveStudent
+          systemName: settings.systemName || 'Campus Room',
+          tagline: settings.tagline || 'Smart Classroom Management System',
+          contactEmail: settings.contactEmail || 'admin@campusroom.edu',
+          supportPhone: settings.supportPhone || '(555) 123-4567',
+          autoApproveAdmin: settings.autoApproveAdmin !== undefined ? settings.autoApproveAdmin : true,
+          autoApproveProfessor: settings.autoApproveProfessor !== undefined ? settings.autoApproveProfessor : false,
+          autoApproveStudent: settings.autoApproveStudent !== undefined ? settings.autoApproveStudent : false
         });
         
         setNotificationSettings({
-          emailNotifications: settings.emailNotifications,
-          reservationCreated: settings.reservationCreated,
-          reservationApproved: settings.reservationApproved,
-          reservationRejected: settings.reservationRejected,
-          newUserRegistered: settings.newUserRegistered,
-          systemUpdates: settings.systemUpdates,
-          dailyDigest: settings.dailyDigest
+          emailNotifications: settings.emailNotifications !== undefined ? settings.emailNotifications : true,
+          reservationCreated: settings.reservationCreated !== undefined ? settings.reservationCreated : true,
+          reservationApproved: settings.reservationApproved !== undefined ? settings.reservationApproved : true,
+          reservationRejected: settings.reservationRejected !== undefined ? settings.reservationRejected : true,
+          newUserRegistered: settings.newUserRegistered !== undefined ? settings.newUserRegistered : true,
+          systemUpdates: settings.systemUpdates !== undefined ? settings.systemUpdates : true,
+          dailyDigest: settings.dailyDigest !== undefined ? settings.dailyDigest : false
         });
         
         setReservationSettings({
-          maxDaysInAdvance: settings.maxDaysInAdvance,
-          minTimeBeforeReservation: settings.minTimeBeforeReservation,
-          maxHoursPerReservation: settings.maxHoursPerReservation,
-          maxReservationsPerWeek: settings.maxReservationsPerWeek,
-          studentRequireApproval: settings.studentRequireApproval,
-          professorRequireApproval: settings.professorRequireApproval,
-          showAvailabilityCalendar: settings.showAvailabilityCalendar
+          maxDaysInAdvance: settings.maxDaysInAdvance || 30,
+          minTimeBeforeReservation: settings.minTimeBeforeReservation || 1,
+          maxHoursPerReservation: settings.maxHoursPerReservation || 4,
+          maxReservationsPerWeek: settings.maxReservationsPerWeek || 5,
+          studentRequireApproval: settings.studentRequireApproval !== undefined ? settings.studentRequireApproval : true,
+          professorRequireApproval: settings.professorRequireApproval !== undefined ? settings.professorRequireApproval : false,
+          showAvailabilityCalendar: settings.showAvailabilityCalendar !== undefined ? settings.showAvailabilityCalendar : true
         });
         
         setLoading(false);
@@ -94,6 +95,37 @@ const AdminSettings = () => {
     
     fetchSettings();
   }, []);
+
+  // Track when settings are successfully applied
+  useEffect(() => {
+    if (saveStatus === 'success') {
+      // Check if settings are being applied in real-time
+      const checkApplicationStatus = async () => {
+        try {
+          // Verify settings are applied by checking the service
+          const currentSettings = await SettingsService.getSettings(true);
+          
+          setApplicationStatus({
+            frontend: 'Applied',
+            backend: 'Applied', 
+            realTime: SettingsService.isReady() ? 'Active' : 'Inactive',
+            lastUpdate: new Date().toLocaleTimeString(),
+            subscriberCount: SettingsService._subscribers?.length || 0
+          });
+        } catch (error) {
+          setApplicationStatus({
+            frontend: 'Error',
+            backend: 'Error',
+            realTime: 'Inactive',
+            lastUpdate: new Date().toLocaleTimeString(),
+            error: error.message
+          });
+        }
+      };
+
+      setTimeout(checkApplicationStatus, 1000);
+    }
+  }, [saveStatus]);
   
   // Handle general settings changes
   const handleGeneralChange = (e) => {
@@ -126,6 +158,7 @@ const AdminSettings = () => {
   const saveSettings = async () => {
     try {
       setSaveStatus('saving');
+      setApplicationStatus({});
       
       // Combine all settings objects into one that matches the DTO structure
       const combinedSettings = {
@@ -142,11 +175,19 @@ const AdminSettings = () => {
       
       // Show success message
       setSaveStatus('success');
-      setTimeout(() => setSaveStatus(null), 3000); // Clear success message after 3 seconds
+      setTimeout(() => setSaveStatus(null), 5000); // Clear success message after 5 seconds
     } catch (error) {
       console.error('Error saving settings:', error);
       setSaveStatus('error');
       setTimeout(() => setSaveStatus(null), 5000); // Clear error message after 5 seconds
+      
+      setApplicationStatus({
+        frontend: 'Error',
+        backend: 'Error',
+        realTime: 'Inactive',
+        lastUpdate: new Date().toLocaleTimeString(),
+        error: error.message || 'Failed to save settings'
+      });
     }
   };
   
@@ -199,13 +240,30 @@ const AdminSettings = () => {
       
       {saveStatus === 'success' && (
         <div className="alert alert-success">
-          Settings saved successfully!
+          <div>Settings saved successfully!</div>
+          {Object.keys(applicationStatus).length > 0 && (
+            <div className="application-status" style={{ marginTop: '10px', fontSize: '0.9em' }}>
+              <strong>Application Status:</strong>
+              <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
+                <li>Frontend: <span className={`status-${applicationStatus.frontend?.toLowerCase()}`}>{applicationStatus.frontend}</span></li>
+                <li>Backend: <span className={`status-${applicationStatus.backend?.toLowerCase()}`}>{applicationStatus.backend}</span></li>
+                <li>Real-time Updates: <span className={`status-${applicationStatus.realTime?.toLowerCase()}`}>{applicationStatus.realTime}</span></li>
+                <li>Active Subscribers: {applicationStatus.subscriberCount || 0}</li>
+                <li>Last Updated: {applicationStatus.lastUpdate}</li>
+              </ul>
+            </div>
+          )}
         </div>
       )}
       
       {saveStatus === 'error' && (
         <div className="alert alert-danger">
-          Failed to save settings. Please try again.
+          <div>Failed to save settings. Please try again.</div>
+          {applicationStatus.error && (
+            <div style={{ marginTop: '5px', fontSize: '0.9em' }}>
+              <strong>Error:</strong> {applicationStatus.error}
+            </div>
+          )}
         </div>
       )}
       
@@ -300,7 +358,15 @@ const AdminSettings = () => {
         <form className="settings-form">
           <div className="form-group checkbox-group">
             <div className="checkbox-item">
-               </div>
+              <input 
+                type="checkbox" 
+                id="emailNotifications" 
+                name="emailNotifications"
+                checked={notificationSettings.emailNotifications}
+                onChange={handleNotificationChange}
+              />
+              <label htmlFor="emailNotifications">Enable notifications</label>
+            </div>
             
             <div className="checkbox-item">
               <input 
@@ -343,125 +409,131 @@ const AdminSettings = () => {
                 Notify on reservation rejection
               </label>
             </div>
-            </div>
-          </form>
-        </div>
-        
-        {/* Reservation Settings */}
-        <div className="section">
-          <h3 className="sub-section-title">Reservation Settings</h3>
-          <form className="settings-form">
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="maxDaysInAdvance">Max Days in Advance</label>
-                <input 
-                  type="number" 
-                  id="maxDaysInAdvance" 
-                  name="maxDaysInAdvance"
-                  min="1"
-                  max="365"
-                  value={reservationSettings.maxDaysInAdvance}
-                  onChange={handleReservationChange}
-                />
-                <small>Maximum days in advance for making reservations</small>
-              </div>
-              <div className="form-group">
-                <label htmlFor="minTimeBeforeReservation">Min Hours Before</label>
-                <input 
-                  type="number" 
-                  id="minTimeBeforeReservation" 
-                  name="minTimeBeforeReservation"
-                  min="0"
-                  max="72"
-                  value={reservationSettings.minTimeBeforeReservation}
-                  onChange={handleReservationChange}
-                />
-                <small>Minimum hours before reservation can be made</small>
-              </div>
-            </div>
-            
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="maxHoursPerReservation">Max Hours Per Reservation</label>
-                <input 
-                  type="number" 
-                  id="maxHoursPerReservation" 
-                  name="maxHoursPerReservation"
-                  min="1"
-                  max="24"
-                  value={reservationSettings.maxHoursPerReservation}
-                  onChange={handleReservationChange}
-                />
-                <small>Maximum hours per single reservation</small>
-              </div>
-              <div className="form-group">
-                <label htmlFor="maxReservationsPerWeek">Max Reservations Per Week</label>
-                <input 
-                  type="number" 
-                  id="maxReservationsPerWeek" 
-                  name="maxReservationsPerWeek"
-                  min="1"
-                  max="21"
-                  value={reservationSettings.maxReservationsPerWeek}
-                  onChange={handleReservationChange}
-                />
-                <small>Maximum reservations per user per week</small>
-              </div>
-            </div>
-            
-            <div className="form-group checkbox-group">
-              <div className="checkbox-item">
-                <input 
-                  type="checkbox" 
-                  id="studentRequireApproval" 
-                  name="studentRequireApproval"
-                  checked={reservationSettings.studentRequireApproval}
-                  onChange={handleReservationChange}
-                />
-                <label htmlFor="studentRequireApproval">Student reservations require approval</label>
-              </div>
-              <div className="checkbox-item">
-                <input 
-                  type="checkbox" 
-                  id="professorRequireApproval" 
-                  name="professorRequireApproval"
-                  checked={reservationSettings.professorRequireApproval}
-                  onChange={handleReservationChange}
-                />
-                <label htmlFor="professorRequireApproval">Professor reservations require approval</label>
-              </div>
-              <div className="checkbox-item">
-                <input 
-                  type="checkbox" 
-                  id="showAvailabilityCalendar" 
-                  name="showAvailabilityCalendar"
-                  checked={reservationSettings.showAvailabilityCalendar}
-                  onChange={handleReservationChange}
-                />
-                <label htmlFor="showAvailabilityCalendar">Show availability calendar to users</label>
-              </div>
-            </div>
-          </form>
-        </div>
-        
-        <div className="form-actions">
-          <button 
-            className="btn-primary"
-            onClick={saveSettings}
-            disabled={saveStatus === 'saving'}
-          >
-            {saveStatus === 'saving' ? 'Saving...' : 'Save All Settings'}
-          </button>
-          <button 
-            className="btn-secondary"
-            onClick={() => window.location.reload()}
-            disabled={saveStatus === 'saving'}
-          >
-            Reset Changes
-          </button>
-        </div>
+
+
+
+           
+
+           
+          </div>
+        </form>
       </div>
-    );
-  };
-  
-  export default AdminSettings;
+      
+      {/* Reservation Settings */}
+      <div className="section">
+        <h3 className="sub-section-title">Reservation Settings</h3>
+        <form className="settings-form">
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="maxDaysInAdvance">Max Days in Advance</label>
+              <input 
+                type="number" 
+                id="maxDaysInAdvance" 
+                name="maxDaysInAdvance"
+                min="1"
+                max="365"
+                value={reservationSettings.maxDaysInAdvance}
+                onChange={handleReservationChange}
+              />
+              <small>Maximum days in advance for making reservations</small>
+            </div>
+            <div className="form-group">
+              <label htmlFor="minTimeBeforeReservation">Min Hours Before</label>
+              <input 
+                type="number" 
+                id="minTimeBeforeReservation" 
+                name="minTimeBeforeReservation"
+                min="0"
+                max="72"
+                value={reservationSettings.minTimeBeforeReservation}
+                onChange={handleReservationChange}
+              />
+              <small>Minimum hours before reservation can be made</small>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="maxHoursPerReservation">Max Hours Per Reservation</label>
+              <input 
+                type="number" 
+                id="maxHoursPerReservation" 
+                name="maxHoursPerReservation"
+                min="1"
+                max="24"
+                value={reservationSettings.maxHoursPerReservation}
+                onChange={handleReservationChange}
+              />
+              <small>Maximum hours per single reservation</small>
+            </div>
+            <div className="form-group">
+              <label htmlFor="maxReservationsPerWeek">Max Reservations Per Week</label>
+              <input 
+                type="number" 
+                id="maxReservationsPerWeek" 
+                name="maxReservationsPerWeek"
+                min="1"
+                max="21"
+                value={reservationSettings.maxReservationsPerWeek}
+                onChange={handleReservationChange}
+              />
+              <small>Maximum reservations per user per week</small>
+            </div>
+          </div>
+          
+          <div className="form-group checkbox-group">
+            <div className="checkbox-item">
+              <input 
+                type="checkbox" 
+                id="studentRequireApproval" 
+                name="studentRequireApproval"
+                checked={reservationSettings.studentRequireApproval}
+                onChange={handleReservationChange}
+              />
+              <label htmlFor="studentRequireApproval">Student reservations require approval</label>
+            </div>
+            <div className="checkbox-item">
+              <input 
+                type="checkbox" 
+                id="professorRequireApproval" 
+                name="professorRequireApproval"
+                checked={reservationSettings.professorRequireApproval}
+                onChange={handleReservationChange}
+              />
+              <label htmlFor="professorRequireApproval">Professor reservations require approval</label>
+            </div>
+            <div className="checkbox-item">
+              <input 
+                type="checkbox" 
+                id="showAvailabilityCalendar" 
+                name="showAvailabilityCalendar"
+                checked={reservationSettings.showAvailabilityCalendar}
+                onChange={handleReservationChange}
+              />
+              <label htmlFor="showAvailabilityCalendar">Show availability calendar to users</label>
+            </div>
+          </div>
+        </form>
+      </div>
+      
+      <div className="form-actions">
+        <button 
+          className="btn-primary"
+          onClick={saveSettings}
+          disabled={saveStatus === 'saving'}
+        >
+          {saveStatus === 'saving' ? 'Saving...' : 'Save All Settings'}
+        </button>
+        <button 
+          className="btn-secondary"
+          onClick={() => window.location.reload()}
+          disabled={saveStatus === 'saving'}
+        >
+          Reset Changes
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default AdminSettings;

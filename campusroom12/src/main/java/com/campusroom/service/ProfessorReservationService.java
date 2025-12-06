@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -67,10 +68,11 @@ public class ProfessorReservationService {
                 .map(this::convertToReservationDTO)
                 .collect(Collectors.toList());
     }
+    
     /**
      * Recherche des salles disponibles selon les critères
      */
- public List<ClassroomDTO> findAvailableClassrooms(String dateStr, String startTime, String endTime,
+    public List<ClassroomDTO> findAvailableClassrooms(String dateStr, String startTime, String endTime,
             String classType, int capacity) {
         System.out.println("Recherche de salles disponibles avec les critères:");
         System.out.println("Date: " + dateStr + ", Heure: " + startTime + " - " + endTime);
@@ -80,6 +82,14 @@ public class ProfessorReservationService {
             // Convertir la date string en Date
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
             Date date = dateFormat.parse(dateStr);
+
+            // Ensure settings are loaded
+            if (currentSettings == null) {
+                currentSettings = settingsProvider.getSettings();
+            }
+            
+            // Validate date based on settings - IMPORTANT: Apply validation here too
+            validateReservationDate(date);
 
             // Trouver toutes les salles qui correspondent au type et à la capacité
             List<Classroom> matchingClassrooms = new ArrayList<>();
@@ -114,7 +124,7 @@ public class ProfessorReservationService {
         }
     }
 
-     @Transactional
+    @Transactional
     public ReservationDTO createReservationRequest(ReservationRequestDTO requestDTO) {
         System.out.println("Creating reservation request: " + requestDTO);
 
@@ -132,16 +142,16 @@ public class ProfessorReservationService {
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
             Date date = dateFormat.parse(requestDTO.getDate());
 
-            // Validate based on settings
+            // Validate based on settings - THIS IS THE CRITICAL FIX
             validateReservationRequest(requestDTO, date);
 
-           // Check for conflicts using detailed conflict detection
-ClassroomAvailabilityService.ConflictInfo conflictInfo = availabilityService.getDetailedConflictInfo(
-    classroom.getId(), date, requestDTO.getStartTime(), requestDTO.getEndTime());
+            // Check for conflicts using detailed conflict detection
+            ClassroomAvailabilityService.ConflictInfo conflictInfo = availabilityService.getDetailedConflictInfo(
+                classroom.getId(), date, requestDTO.getStartTime(), requestDTO.getEndTime());
 
-if (conflictInfo.hasConflicts()) {
-    throw new RuntimeException("Classroom conflict detected:\n" + conflictInfo.getDetailedMessage());
-}
+            if (conflictInfo.hasConflicts()) {
+                throw new RuntimeException("Classroom conflict detected:\n" + conflictInfo.getDetailedMessage());
+            }
 
             // Create the reservation with UUID
             Reservation reservation = new Reservation();
@@ -177,14 +187,168 @@ if (conflictInfo.hasConflicts()) {
             throw new RuntimeException("Invalid date format: " + requestDTO.getDate());
         }
     }
-    // Similar validation method as in StudentReservationService
+
+    /**
+     * COMPLETE VALIDATION METHOD - THIS WAS MISSING!
+     * Validate reservation request for professors with all constraints
+     */
     private void validateReservationRequest(ReservationRequestDTO requestDTO, Date requestDate) {
-        // Similar validation logic using currentSettings
+        // Get current user
+        User currentUser = getCurrentUser();
+        
+        // Ensure settings are loaded
+        if (currentSettings == null) {
+            currentSettings = settingsProvider.getSettings();
+        }
+        
+        System.out.println("Validating reservation request with settings: maxDaysInAdvance=" + 
+                          currentSettings.getMaxDaysInAdvance());
+        
+        // Validate reservation date
+        validateReservationDate(requestDate);
+        
+        // Validate reservation constraints for professors
+        validateReservationConstraints(requestDTO, requestDate, currentUser);
+    }
+
+    /**
+     * Validate reservation date constraints
+     */
+    private void validateReservationDate(Date date) {
+        // Check if today's date
+        Calendar today = Calendar.getInstance();
+        today.set(Calendar.HOUR_OF_DAY, 0);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+        today.set(Calendar.MILLISECOND, 0);
+        
+        // Check date is not in the past
+        if (date.before(today.getTime())) {
+            throw new RuntimeException("Cannot make reservations for past dates");
+        }
+        
+        // Check date not too far in advance from settings - THIS IS THE CRITICAL PART
+        Calendar maxFutureDate = Calendar.getInstance();
+        maxFutureDate.add(Calendar.DAY_OF_YEAR, currentSettings.getMaxDaysInAdvance());
+        
+        System.out.println("Checking date constraint: requestDate=" + date + 
+                          ", maxAllowedDate=" + maxFutureDate.getTime() + 
+                          ", maxDaysInAdvance=" + currentSettings.getMaxDaysInAdvance());
+        
+        if (date.after(maxFutureDate.getTime())) {
+            throw new RuntimeException("Cannot make reservations more than " + 
+                currentSettings.getMaxDaysInAdvance() + " days in advance");
+        }
+    }
+
+    /**
+     * Validate reservation constraints (time, duration, weekly limits)
+     */
+    private void validateReservationConstraints(ReservationRequestDTO requestDTO, Date date, User user) {
+        Calendar today = Calendar.getInstance();
+        
+        // Check if minimum time before reservation is respected from settings
+        if (currentSettings.getMinTimeBeforeReservation() > 0) {
+            Calendar minReservationTime = Calendar.getInstance();
+            minReservationTime.add(Calendar.HOUR_OF_DAY, currentSettings.getMinTimeBeforeReservation());
+            
+            // If reservation is for today, check if it's at least the minimum time ahead
+            if (isSameDay(date, today.getTime())) {
+                // Get today's date with the requested start time
+                Calendar reservationStart = Calendar.getInstance();
+                reservationStart.setTime(date);
+                
+                // Parse start time
+                String[] timeParts = requestDTO.getStartTime().split(":");
+                int hours = Integer.parseInt(timeParts[0]);
+                int minutes = Integer.parseInt(timeParts[1]);
+                
+                reservationStart.set(Calendar.HOUR_OF_DAY, hours);
+                reservationStart.set(Calendar.MINUTE, minutes);
+                
+                if (reservationStart.getTime().before(minReservationTime.getTime())) {
+                    throw new RuntimeException("Reservations must be made at least " + 
+                        currentSettings.getMinTimeBeforeReservation() + " hours in advance");
+                }
+            }
+        }
+        
+        // Validate reservation duration
+        String[] startParts = requestDTO.getStartTime().split(":");
+        String[] endParts = requestDTO.getEndTime().split(":");
+        
+        int startHours = Integer.parseInt(startParts[0]);
+        int startMinutes = Integer.parseInt(startParts[1]);
+        int endHours = Integer.parseInt(endParts[0]);
+        int endMinutes = Integer.parseInt(endParts[1]);
+        
+        double duration = (endHours + endMinutes/60.0) - (startHours + startMinutes/60.0);
+        
+        if (duration > currentSettings.getMaxHoursPerReservation()) {
+            throw new RuntimeException("Reservations cannot exceed " + 
+                currentSettings.getMaxHoursPerReservation() + " hours");
+        }
+        
+        // Check weekly reservation limit - CORRECTED LOGIC
+        // Calculate the week of the requested reservation date
+        Calendar requestedWeekStart = Calendar.getInstance();
+        requestedWeekStart.setTime(date);
+        requestedWeekStart.setFirstDayOfWeek(Calendar.MONDAY);
+        requestedWeekStart.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);
+        requestedWeekStart.set(Calendar.HOUR_OF_DAY, 0);
+        requestedWeekStart.set(Calendar.MINUTE, 0);
+        requestedWeekStart.set(Calendar.SECOND, 0);
+        requestedWeekStart.set(Calendar.MILLISECOND, 0);
+        
+        Calendar requestedWeekEnd = (Calendar) requestedWeekStart.clone();
+        requestedWeekEnd.add(Calendar.DAY_OF_YEAR, 7);
+        
+        System.out.println("Checking weekly limit for week: " + requestedWeekStart.getTime() + " to " + requestedWeekEnd.getTime());
+        
+        // Count existing reservations for the SAME WEEK as the requested date
+        List<Reservation> userReservations = reservationRepository.findByUser(user);
+        int weeklyCount = 0;
+        
+        for (Reservation res : userReservations) {
+            // Skip canceled or rejected reservations
+            if ("CANCELED".equals(res.getStatus()) || "REJECTED".equals(res.getStatus())) {
+                continue;
+            }
+            
+            Calendar resDate = Calendar.getInstance();
+            resDate.setTime(res.getDate());
+            
+            // Check if this reservation is in the same week as the requested date
+            if (resDate.getTime().compareTo(requestedWeekStart.getTime()) >= 0 && 
+                resDate.getTime().before(requestedWeekEnd.getTime())) {
+                weeklyCount++;
+                System.out.println("Found existing reservation in same week: " + res.getDate() + 
+                                 " (Status: " + res.getStatus() + ")");
+            }
+        }
+        
+        System.out.println("Weekly reservations count: " + weeklyCount + "/" + currentSettings.getMaxReservationsPerWeek());
+        
+        if (weeklyCount >= currentSettings.getMaxReservationsPerWeek()) {
+            throw new RuntimeException("You have reached the maximum number of reservations per week (" + 
+                currentSettings.getMaxReservationsPerWeek() + "). Current count: " + weeklyCount);
+        }
+    }
+
+    /**
+     * Helper method to check if two dates are the same day
+     */
+    private boolean isSameDay(Date date1, Date date2) {
+        Calendar cal1 = Calendar.getInstance();
+        Calendar cal2 = Calendar.getInstance();
+        cal1.setTime(date1);
+        cal2.setTime(date2);
+        return cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR) &&
+               cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR);
     }
     
     /**
      * Modifie une demande de réservation existante
-     * Nouvelle méthode ajoutée pour permettre la modification
      */
     @Transactional
     public ReservationDTO editReservationRequest(String id, ReservationRequestDTO requestDTO) {
@@ -208,6 +372,13 @@ if (conflictInfo.hasConflicts()) {
                 throw new RuntimeException("Seules les réservations en attente peuvent être modifiées");
             }
             
+            // Convertir la date
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+            Date date = dateFormat.parse(requestDTO.getDate());
+            
+            // Valider la nouvelle demande avec les mêmes contraintes - IMPORTANT
+            validateReservationRequest(requestDTO, date);
+            
             // Vérifier si la salle a changé
             boolean classroomChanged = false;
             Classroom newClassroom = null;
@@ -221,22 +392,18 @@ if (conflictInfo.hasConflicts()) {
                 newClassroom = reservation.getClassroom();
             }
             
-            // Convertir la date
-            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-            Date date = dateFormat.parse(requestDTO.getDate());
-            
             // Vérifier les conflits de réservation pour la nouvelle plage horaire
             if (classroomChanged || 
                 !dateFormat.format(reservation.getDate()).equals(requestDTO.getDate()) ||
                 !reservation.getStartTime().equals(requestDTO.getStartTime()) ||
                 !reservation.getEndTime().equals(requestDTO.getEndTime())) {
                 
-               ClassroomAvailabilityService.ConflictInfo conflictInfo = availabilityService.getDetailedConflictInfo(
-    newClassroom.getId(), date, requestDTO.getStartTime(), requestDTO.getEndTime());
+                ClassroomAvailabilityService.ConflictInfo conflictInfo = availabilityService.getDetailedConflictInfo(
+                    newClassroom.getId(), date, requestDTO.getStartTime(), requestDTO.getEndTime());
 
-if (conflictInfo.hasConflicts()) {
-    throw new RuntimeException("Classroom conflict detected:\n" + conflictInfo.getDetailedMessage());
-}
+                if (conflictInfo.hasConflicts()) {
+                    throw new RuntimeException("Classroom conflict detected:\n" + conflictInfo.getDetailedMessage());
+                }
             }
             
             // Mettre à jour la réservation avec les nouvelles valeurs
@@ -329,7 +496,7 @@ if (conflictInfo.hasConflicts()) {
     /**
      * Convertit une heure au format "HH:mm" en minutes depuis minuit
      */
-  private int convertTimeToMinutes(String time) {
+    private int convertTimeToMinutes(String time) {
         if (time == null || !time.matches("^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$")) {
             throw new RuntimeException("Invalid time format: " + time + ". Expected format is HH:MM");
         }
@@ -346,8 +513,7 @@ if (conflictInfo.hasConflicts()) {
     }
 
     /**
-     * Crée une notification pour les administrateurs concernant une nouvelle
-     * demande
+     * Crée une notification pour les administrateurs concernant une nouvelle demande
      */
     private void createAdminNotification(Reservation reservation) {
         // Trouver tous les utilisateurs avec le rôle ADMIN
@@ -371,7 +537,6 @@ if (conflictInfo.hasConflicts()) {
     
     /**
      * Crée une notification pour les administrateurs concernant une mise à jour
-     * d'une demande de réservation
      */
     private void createAdminUpdateNotification(Reservation reservation) {
         // Trouver tous les utilisateurs avec le rôle ADMIN
